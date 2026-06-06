@@ -60,10 +60,10 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .roster-table tr:last-child td { border-bottom:none; }
 .roster-top-three td { background:#ffeb3b!important; color:#000!important; font-weight:900; }
 .draft-stopped-note { color:#bbb; font-style:italic; margin:.5rem 0 1rem 0; }
-.team-heading { display:flex; align-items:center; gap:9px; min-width:0; }
+.team-heading { display:flex; align-items:center; flex-wrap:wrap; gap:14px; min-width:0; }
 .team-heading span { min-width:0; overflow-wrap:anywhere; }
-.team-face { width:2.25em; height:2.25em; border-radius:50%; object-fit:cover; border:2px solid currentColor; flex:0 0 auto; }
-.team-face-placeholder { width:2.25em; height:2.25em; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.42rem; line-height:.9; text-align:center; overflow:hidden; flex:0 0 auto; padding:2px; background:#050505; }
+.team-face { width:9em; height:9em; border-radius:50%; object-fit:cover; border:4px solid currentColor; flex:0 0 auto; box-shadow:0 0 22px currentColor; }
+.team-face-placeholder { width:9em; height:9em; border-radius:50%; border:4px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.95rem; font-weight:900; line-height:1.05; text-align:center; overflow:hidden; flex:0 0 auto; padding:10px; background:#050505; box-shadow:0 0 22px currentColor; }
 .score-badge { display:inline-flex; align-items:center; justify-content:center; width:3.1rem; height:3.1rem; margin-left:auto; border-radius:50%; color:#000; font-size:1.35rem; font-weight:900; line-height:1; flex:0 0 auto; }
 .color-chip { display:inline-flex; align-items:center; justify-content:center; width:1.05rem; height:1.05rem; border-radius:50%; border:1px solid rgba(255,255,255,.55); margin-right:.35rem; vertical-align:-.18rem; }
 .color-chip.used { opacity:.28; filter:grayscale(.75); }
@@ -74,6 +74,7 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
     .refresh-button-wrap div[data-testid="stButton"] > button { min-height:58px!important; font-size:1.05rem!important; }
     .app-title h1 { font-size:2rem; }
     .tournament-meta { font-size:1.02rem; }
+    .team-face, .team-face-placeholder { width:7em; height:7em; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -114,18 +115,26 @@ GITHUB_HEADERS = {
 }
 
 TEAM_COLOR_OPTIONS = [
-    ("Fairway Green", "#00cc77"),
-    ("Electric Violet", "#bb77ff"),
-    ("Sky Caddie", "#8ECFFF"),
-    ("Pin Flag Yellow", "#ffeb3b"),
-    ("Sunday Red", "#ff4b4b"),
-    ("Tee Box Blue", "#3f7cff"),
-    ("Azalea Pink", "#ff6fb1"),
-    ("Copper Cup", "#d89b4a"),
-    ("Mint Glove", "#66f2c2"),
-    ("Deep Orange", "#ff7a00"),
-    ("Steel Gray", "#b7c0cc"),
-    ("Royal Lime", "#b8ff3d"),
+    ("Neon Green", "#39FF14"),
+    ("Electric Cyan", "#00F5FF"),
+    ("Hot Magenta", "#FF00FF"),
+    ("Laser Yellow", "#FFF700"),
+    ("Neon Red", "#FF073A"),
+    ("Hyper Blue", "#1F51FF"),
+    ("Bubblegum Pink", "#FF6EC7"),
+    ("Safety Orange", "#FF5F1F"),
+    ("Mint Flash", "#00FF9F"),
+    ("Ultra Violet", "#B026FF"),
+    ("Acid Lime", "#CCFF00"),
+    ("Cyber Teal", "#00FFD5"),
+    ("Rave Pink", "#FE019A"),
+    ("Volt Purple", "#8F00FF"),
+    ("Plasma Coral", "#FF4040"),
+    ("Toxic Jade", "#00FF66"),
+    ("Electric Lavender", "#D946FF"),
+    ("Solar Gold", "#FFD300"),
+    ("Ice Blue", "#7DF9FF"),
+    ("Neon Peach", "#FF9966"),
 ]
 TEAM_COLOR_BY_HEX = {hex_value: label for label, hex_value in TEAM_COLOR_OPTIONS}
 
@@ -2116,6 +2125,7 @@ with st.expander("🔧 Admin Section", expanded=False):
                 st.rerun()
 
     st.subheader("Team Names & Colors")
+    st.caption("Color selection is first come, first serve, I'm a chemical engineer, not an IT guy.")
     used_colors = {info.get("color") for info in teams_data.values() if info.get("color")}
     palette_parts = []
     for label, color in TEAM_COLOR_OPTIONS:

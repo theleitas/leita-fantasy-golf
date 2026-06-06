@@ -20,55 +20,55 @@
     "McClure": {
       "team_name": "McClure",
       "players": [],
-      "color": "#00cc77",
+      "color": "#39FF14",
       "image": "McClure.jpeg"
     },
     "Red": {
       "team_name": "Red",
       "players": [],
-      "color": "#bb77ff",
+      "color": "#00F5FF",
       "image": "Red.jpeg"
     },
     "Marco": {
       "team_name": "Marco",
       "players": [],
-      "color": "#8ECFFF",
+      "color": "#FF00FF",
       "image": "Marco.jpeg"
     },
     "Brax": {
       "team_name": "Brax",
       "players": [],
-      "color": "#ffeb3b",
+      "color": "#FFF700",
       "image": "Brax.jpeg"
     },
     "CMO": {
       "team_name": "CMO",
       "players": [],
-      "color": "#ff4b4b",
+      "color": "#FF073A",
       "image": "CMO.jpeg"
     },
     "Handler": {
       "team_name": "Handler",
       "players": [],
-      "color": "#3f7cff",
+      "color": "#1F51FF",
       "image": "Handler.jpeg"
     },
     "A-Burst": {
       "team_name": "A-Burst",
       "players": [],
-      "color": "#ff6fb1",
+      "color": "#FF6EC7",
       "image": "A-Burst.jpeg"
     },
     "Lutt": {
       "team_name": "Lutt",
       "players": [],
-      "color": "#d89b4a",
+      "color": "#FF5F1F",
       "image": "Lutt.jpeg"
     },
     "Jeff": {
       "team_name": "Jeff",
       "players": [],
-      "color": "#66f2c2",
+      "color": "#00FF9F",
       "image": "Jeff.jpeg"
     }
   },
