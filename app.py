@@ -7,7 +7,7 @@ except ImportError:
         return None
 import requests, json, base64, time, html, os, mimetypes, re
 from functools import lru_cache
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 RENDER_T0 = time.perf_counter()
@@ -47,22 +47,33 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .refresh-button-wrap div[data-testid="stButton"] > button:hover {
     background:#ff7a00!important; color:#000!important; border-color:#ffe600!important;
 }
-.app-title { display:flex; align-items:center; gap:14px; margin:.6rem 0 .25rem 0; }
+.app-title { display:flex; align-items:center; gap:14px; margin:.6rem 0 .35rem 0; }
 .app-title h1 { margin:0; padding:0; font-size:2.75rem; line-height:1.1; font-weight:800; }
 .app-logo { width:3.5em; height:3.5em; object-fit:contain; flex:0 0 auto; }
-.roster-table { width:100%; border-collapse:collapse; font-size:.95rem; background:#080808; color:#fff; overflow:hidden; border-radius:8px; }
-.roster-table th { text-align:left; padding:10px 12px; color:#fff; border-bottom:1px solid rgba(255,255,255,.18); font-weight:800; }
-.roster-table td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.10); vertical-align:middle; }
+.tournament-meta { font-size:1.2rem; line-height:1.45; color:#f2f2f2; margin:0 0 1.1rem 0; font-weight:700; }
+.tournament-meta span { color:#c9d4df; font-weight:650; }
+.payout-rules-box { border:1px solid #444; background:#0b0b0b; border-left:5px solid #ffeb3b; border-radius:8px; padding:12px 14px; margin:1.2rem 0; color:#fff; font-size:.98rem; line-height:1.4; }
+.compact-card { border-width:3px!important; border-radius:10px!important; padding:12px 14px!important; margin-bottom:1rem!important; box-shadow:0 3px 10px rgba(255,255,255,.06); }
+.roster-table { width:100%; border-collapse:collapse; font-size:.82rem; background:#080808; color:#fff; overflow:hidden; border-radius:8px; }
+.roster-table th { text-align:left; padding:7px 8px; color:#fff; border-bottom:1px solid rgba(255,255,255,.18); font-weight:800; }
+.roster-table td { padding:7px 8px; border-bottom:1px solid rgba(255,255,255,.10); vertical-align:middle; }
 .roster-table tr:last-child td { border-bottom:none; }
 .roster-top-three td { background:#ffeb3b!important; color:#000!important; font-weight:900; }
 .draft-stopped-note { color:#bbb; font-style:italic; margin:.5rem 0 1rem 0; }
-.team-heading { display:flex; align-items:center; gap:14px; }
-.team-face { width:2.5em; height:2.5em; border-radius:50%; object-fit:cover; border:2px solid currentColor; flex:0 0 auto; }
+.team-heading { display:flex; align-items:center; gap:9px; min-width:0; }
+.team-heading span { min-width:0; overflow-wrap:anywhere; }
+.team-face { width:2.25em; height:2.25em; border-radius:50%; object-fit:cover; border:2px solid currentColor; flex:0 0 auto; }
+.team-face-placeholder { width:2.25em; height:2.25em; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.42rem; line-height:.9; text-align:center; overflow:hidden; flex:0 0 auto; padding:2px; background:#050505; }
+.score-badge { display:inline-flex; align-items:center; justify-content:center; width:3.1rem; height:3.1rem; margin-left:auto; border-radius:50%; color:#000; font-size:1.35rem; font-weight:900; line-height:1; flex:0 0 auto; }
+.color-chip { display:inline-flex; align-items:center; justify-content:center; width:1.05rem; height:1.05rem; border-radius:50%; border:1px solid rgba(255,255,255,.55); margin-right:.35rem; vertical-align:-.18rem; }
+.color-chip.used { opacity:.28; filter:grayscale(.75); }
+.draft-table-wrap { overflow-x:auto; width:100%; }
 @media (max-width:700px) {
     div[data-testid="column"] { width:100%!important; flex:1 1 100%!important; }
     div[data-testid="stButton"] > button { min-height:54px!important; font-size:.98rem!important; }
     .refresh-button-wrap div[data-testid="stButton"] > button { min-height:58px!important; font-size:1.05rem!important; }
     .app-title h1 { font-size:2rem; }
+    .tournament-meta { font-size:1.02rem; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -83,37 +94,18 @@ REPO_OWNER = "theleitas"
 REPO_NAME = "leita-fantasy-golf"
 STATE_FILE_PATH = "draft_state.json"
 BRANCH = "main"
-MAX_PICKS = 30
+DEFAULT_APP_TITLE = "Leita Fantasy Golf"
+DEFAULT_COACHES = ["McClure", "Red", "Marco", "Brax", "CMO", "Handler", "A-Burst", "Lutt", "Jeff"]
+MAX_ROUNDS = 10
+MAX_PICKS = len(DEFAULT_COACHES) * MAX_ROUNDS
 ESPN_LEADERBOARD_BASE_URL = "https://site.web.api.espn.com/apis/site/v2/sports/golf/leaderboard"
 ESPN_PGA_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard"
 AUTO_SCORE_REFRESH_SECONDS = 5 * 60
 AVAILABLE_GOLFERS_PAGE_SIZE = 24
-DEFAULT_TWILIO_ACCOUNT_SID = read_secret("TWILIO_ACCOUNT_SID") or ""
-DEFAULT_TWILIO_AUTH_TOKEN = read_secret("TWILIO_AUTH_TOKEN") or ""
-DEFAULT_TWILIO_FROM_NUMBER = read_secret("TWILIO_FROM_NUMBER") or ""
-
-TEXT_UPDATE_TYPES = {
-    "tee_off": {
-        "label": "Tee Off Updates",
-        "template": "{coach}'s golfer {player} has teed off. Team totals: {team_totals}",
-    },
-    "birdie": {
-        "label": "Birdie Updates",
-        "template": "{coach}'s golfer {player} got a birdie on hole {hole}",
-    },
-    "bogey": {
-        "label": "Bogey Updates",
-        "template": "{coach}'s golfer {player} got a bogey on hole {hole}",
-    },
-    "lead_change": {
-        "label": "Lead Change",
-        "template": "Lead change: {leaders} now lead. Team totals: {team_totals}",
-    },
-    "top3_change": {
-        "label": "Top 3 Golfer Change",
-        "template": "{coach}'s golfer {dropped_player} has dropped from the Top 3, replaced by {added_player}",
-    },
-}
+DEFAULT_PAYOUT_RULES = (
+    "Each coach drafts 10 golfers and antes $50. Coach with lowest 3 golfers at end of tournaments "
+    "wins with payouts of $X for 1st, $Y for 2nd, and $Z for 3rd."
+)
 
 GITHUB_HEADERS = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -121,19 +113,24 @@ GITHUB_HEADERS = {
     "X-GitHub-Api-Version": "2022-11-28",
 }
 
-COACH_COLORS = {
-    "Jayme Leita": "#00cc77",
-    "Spencer Tidwell": "#bb77ff",
-    "Peter Miller": "#8ECFFF",
-}
-
-COACH_IMAGES = {
-    "Jayme Leita": "jayme-pic.png",
-    "Spencer Tidwell": "spencer-pic.png",
-    "Peter Miller": "peter-pic.png",
-}
+TEAM_COLOR_OPTIONS = [
+    ("Fairway Green", "#00cc77"),
+    ("Electric Violet", "#bb77ff"),
+    ("Sky Caddie", "#8ECFFF"),
+    ("Pin Flag Yellow", "#ffeb3b"),
+    ("Sunday Red", "#ff4b4b"),
+    ("Tee Box Blue", "#3f7cff"),
+    ("Azalea Pink", "#ff6fb1"),
+    ("Copper Cup", "#d89b4a"),
+    ("Mint Glove", "#66f2c2"),
+    ("Deep Orange", "#ff7a00"),
+    ("Steel Gray", "#b7c0cc"),
+    ("Royal Lime", "#b8ff3d"),
+]
+TEAM_COLOR_BY_HEX = {hex_value: label for label, hex_value in TEAM_COLOR_OPTIONS}
 
 APP_LOGO = "pga-tour.png"
+THUMBNAIL_PATH = "thumb.png"
 
 STATIC_ODDS = {
     "Scottie Scheffler": "+450", "Rory McIlroy": "+800", "Xander Schauffele": "+1400",
@@ -210,84 +207,52 @@ PLAYER_FLAGS = {
     "Bernd Wiesberger": "🇦🇹", "Y.E. Yang": "🇰🇷", "Sudarshan Yellamaraju": "🇨🇦",
 }
 
-def default_text_updates():
+def coach_photo_filename(coach_id):
+    return f"{coach_id}.jpeg"
+
+def default_team_color(index):
+    return TEAM_COLOR_OPTIONS[index % len(TEAM_COLOR_OPTIONS)][1]
+
+def default_teams():
     return {
-        "enabled": False,
-        "twilio": {
-            "account_sid": DEFAULT_TWILIO_ACCOUNT_SID,
-            "auth_token": DEFAULT_TWILIO_AUTH_TOKEN,
-            "from_number": DEFAULT_TWILIO_FROM_NUMBER,
-        },
-        "recipients": {
-            "Jayme": {"enabled": False, "phone": ""},
-            "Spencer": {"enabled": False, "phone": ""},
-            "Peter": {"enabled": False, "phone": ""},
-        },
-        "updates": {key: {"enabled": True, "template": value["template"]} for key, value in TEXT_UPDATE_TYPES.items()},
-        "sent_event_ids": [],
-        "top3_by_coach": {},
-        "leaders": [],
+        coach: {
+            "team_name": coach,
+            "players": [],
+            "color": default_team_color(index),
+            "image": coach_photo_filename(coach),
+        }
+        for index, coach in enumerate(DEFAULT_COACHES)
     }
-
-def normalize_text_updates(state):
-    defaults = default_text_updates()
-    text_updates = state.get("text_updates")
-    if not isinstance(text_updates, dict):
-        text_updates = defaults
-        state["text_updates"] = text_updates
-
-    text_updates.setdefault("enabled", defaults["enabled"])
-    twilio = text_updates.setdefault("twilio", {})
-    for key, value in defaults["twilio"].items():
-        twilio.setdefault(key, value)
-
-    recipients = text_updates.setdefault("recipients", {})
-    for name, value in defaults["recipients"].items():
-        slot = recipients.setdefault(name, {})
-        slot.setdefault("enabled", value["enabled"])
-        slot.setdefault("phone", value["phone"])
-
-    updates = text_updates.setdefault("updates", {})
-    for key, value in defaults["updates"].items():
-        slot = updates.setdefault(key, {})
-        slot.setdefault("enabled", value["enabled"])
-        slot.setdefault("template", value["template"])
-
-    sent_event_ids = text_updates.get("sent_event_ids")
-    if not isinstance(sent_event_ids, list):
-        text_updates["sent_event_ids"] = []
-    top3_by_coach = text_updates.get("top3_by_coach")
-    if not isinstance(top3_by_coach, dict):
-        text_updates["top3_by_coach"] = {}
-    leaders = text_updates.get("leaders")
-    if not isinstance(leaders, list):
-        text_updates["leaders"] = []
-
-    return text_updates
 
 def default_state():
     return {
+        "app_title": DEFAULT_APP_TITLE,
+        "payout_rules": DEFAULT_PAYOUT_RULES,
+        "thumbnail": {},
         "draft_enabled": False,
         "draft_active": False,
-        "draft_order": ["Jayme Leita", "Spencer Tidwell", "Peter Miller"],
+        "draft_order": list(DEFAULT_COACHES),
         "last_pick_started_at": 0,
         "player_results": {},
         "hole_outcomes": {},
         "last_score_refresh_at": 0,
         "last_score_refresh_attempt_at": 0,
-        "teams": {
-            "Jayme Leita": {"team_name": "Jayme's Team", "players": []},
-            "Spencer Tidwell": {"team_name": "Spencer's Team", "players": []},
-            "Peter Miller": {"team_name": "Peter's Team", "players": []},
-        },
+        "teams": default_teams(),
         "selected_tournament": {},
-        "text_updates": default_text_updates(),
     }
 
 def normalize_state(state):
     base = default_state()
     if not isinstance(state, dict):
         return base
+    state.setdefault("app_title", base["app_title"])
+    state.setdefault("payout_rules", base["payout_rules"])
+    if not str(state.get("app_title") or "").strip():
+        state["app_title"] = base["app_title"]
+    if not str(state.get("payout_rules") or "").strip():
+        state["payout_rules"] = base["payout_rules"]
+    if not isinstance(state.get("thumbnail"), dict):
+        state["thumbnail"] = {}
     state.setdefault("draft_enabled", base["draft_enabled"])
     state.setdefault("draft_active", base["draft_active"])
     state.setdefault("draft_order", base["draft_order"])
@@ -298,23 +263,33 @@ def normalize_state(state):
     state.setdefault("last_score_refresh_attempt_at", base["last_score_refresh_attempt_at"])
     state.setdefault("teams", base["teams"])
     state.setdefault("selected_tournament", base["selected_tournament"])
-    state.setdefault("text_updates", base["text_updates"])
-    for coach, info in base["teams"].items():
-        state["teams"].setdefault(coach, info)
-    valid_coaches = list(state["teams"].keys())
+    existing_teams = state.get("teams") if isinstance(state.get("teams"), dict) else {}
+    normalized_teams = {}
+    used_colors = set()
+    for index, coach in enumerate(DEFAULT_COACHES):
+        prior = existing_teams.get(coach) if isinstance(existing_teams.get(coach), dict) else {}
+        color = str(prior.get("color") or default_team_color(index)).strip()
+        if color not in TEAM_COLOR_BY_HEX or color in used_colors:
+            color = next(hex_value for _, hex_value in TEAM_COLOR_OPTIONS if hex_value not in used_colors)
+        used_colors.add(color)
+        players = prior.get("players") if isinstance(prior.get("players"), list) else []
+        normalized_teams[coach] = {
+            "team_name": str(prior.get("team_name") or coach).strip() or coach,
+            "players": [str(player) for player in players],
+            "color": color,
+            "image": coach_photo_filename(coach),
+        }
+    state["teams"] = normalized_teams
+    valid_coaches = list(DEFAULT_COACHES)
     cleaned_order = [coach for coach in state["draft_order"] if coach in valid_coaches]
     for coach in valid_coaches:
         if coach not in cleaned_order:
             cleaned_order.append(coach)
-    state["draft_order"] = cleaned_order[:3]
-    for coach in valid_coaches:
-        state["teams"][coach].setdefault("team_name", coach)
-        state["teams"][coach].setdefault("players", [])
+    state["draft_order"] = cleaned_order[:len(valid_coaches)]
     if not isinstance(state.get("selected_tournament"), dict):
         state["selected_tournament"] = {}
     if not isinstance(state.get("hole_outcomes"), dict):
         state["hole_outcomes"] = {}
-    normalize_text_updates(state)
     return state
 
 def parse_espn_datetime(value):
@@ -414,14 +389,18 @@ def build_tournament_options(selected_event_id):
     current_events = payload.get("events") or []
     current_event_id = str(current_events[0].get("id")) if current_events else None
     today_et = datetime.now(ZoneInfo("America/New_York")).date()
+    horizon_et = today_et + timedelta(days=365)
 
     normalized = []
     for entry in calendar:
         event_id = str(entry.get("id") or "").strip()
         if not event_id:
             continue
+        start_dt = parse_espn_datetime(entry.get("startDate"))
         end_dt = parse_espn_datetime(entry.get("endDate"))
         if end_dt and end_dt.astimezone(ZoneInfo("America/New_York")).date() < today_et:
+            continue
+        if start_dt and start_dt.astimezone(ZoneInfo("America/New_York")).date() > horizon_et:
             continue
         normalized.append(
             {
@@ -441,7 +420,7 @@ def build_tournament_options(selected_event_id):
         anchor_index = 0
         anchor_event_id = normalized[0]["event_id"]
 
-    picked = normalized[anchor_index:anchor_index + 11]
+    picked = normalized
     options = []
     for item in picked:
         details = {
@@ -509,10 +488,6 @@ def save_selected_tournament(selection):
         state["hole_outcomes"] = {}
         state["last_score_refresh_at"] = 0
         state["last_score_refresh_attempt_at"] = 0
-        text_updates = normalize_text_updates(state)
-        text_updates["sent_event_ids"] = []
-        text_updates["top3_by_coach"] = {}
-        text_updates["leaders"] = []
         return True
 
     return mutate_shared_state(mutator, "Update selected tournament")
@@ -543,11 +518,17 @@ def image_html(path, class_name):
 def app_logo_html():
     return image_html(APP_LOGO, "app-logo")
 
-def coach_image_html(coach_id):
-    image_path = COACH_IMAGES.get(coach_id)
-    if not image_path:
-        return ""
-    return image_html(image_path, "team-face")
+def coach_image_html(coach_id, color):
+    image_path = coach_photo_filename(coach_id)
+    data_uri = image_to_data_uri(image_path)
+    if data_uri:
+        return f"<img class='team-face' src='{data_uri}' alt=''>"
+    safe_filename = html.escape(image_path)
+    safe_color = html.escape(color)
+    return (
+        f"<div class='team-face-placeholder' style='border-color:{safe_color}; color:{safe_color};'>"
+        f"{safe_filename}</div>"
+    )
 
 def flag_for_player(player):
     return PLAYER_FLAGS.get(player, "🇺🇸")
@@ -952,7 +933,7 @@ def fetch_live_scores_from_espn(event_id=""):
     results = {}
     for competitor in extract_competitors(payload):
         raw_name = extract_athlete_name(competitor)
-        matched_name = PLAYER_NAME_LOOKUP.get(normalize_player_match_name(raw_name))
+        matched_name = PLAYER_NAME_LOOKUP.get(normalize_player_match_name(raw_name)) or str(raw_name or "").strip()
         if not matched_name:
             continue
 
@@ -971,6 +952,37 @@ def fetch_live_scores_from_espn(event_id=""):
         }
 
     return results
+
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_tournament_field(event_id=""):
+    if not event_id:
+        return []
+    params = {"league": "pga", "event": str(event_id)}
+    resp = requests.get(ESPN_LEADERBOARD_BASE_URL, params=params, timeout=12)
+    resp.raise_for_status()
+    payload = resp.json()
+    players = []
+    seen = set()
+    for competitor in extract_competitors(payload):
+        raw_name = extract_athlete_name(competitor)
+        player = PLAYER_NAME_LOOKUP.get(normalize_player_match_name(raw_name)) or str(raw_name or "").strip()
+        if not player or player in seen:
+            continue
+        seen.add(player)
+        players.append(player)
+    players.sort(key=lambda player: (last_name_key(player), player.lower()))
+    return players
+
+def get_draft_player_pool(tournament):
+    event_id = str((tournament or {}).get("event_id") or "").strip()
+    if event_id:
+        try:
+            field_players = fetch_tournament_field(event_id)
+            if field_players:
+                return field_players, f"Draft field loaded from ESPN for {tournament.get('title') or 'the selected tournament'}."
+        except Exception:
+            pass
+    return list(PGA_PLAYERS), "Tournament field is not available from ESPN yet, so the draft list is using the saved PGA player pool."
 
 @st.cache_data(ttl=120, show_spinner=False)
 def fetch_competitor_summary(event_id, competitor_id, league="pga"):
@@ -1073,9 +1085,6 @@ def get_recent_outcomes_for_standings(player_name, result):
 
 def coach_short_name(coach_id):
     return str(coach_id).split()[0]
-
-def normalize_phone(value):
-    return str(value or "").strip()
 
 def is_tee_time_status(value):
     text = display_hole_value(value).upper()
@@ -1223,185 +1232,6 @@ def format_all_team_totals_from_results(state, results):
         parts.append(f"{coach_short_name(coach_id)} {total}")
     return " | ".join(parts)
 
-def render_update_template(template, context):
-    class SafeDict(dict):
-        def __missing__(self, key):
-            return "{" + key + "}"
-    return str(template or "").format_map(SafeDict(context))
-
-def send_twilio_sms(text_updates, to_number, body):
-    twilio = text_updates.get("twilio", {})
-    sid = normalize_phone(twilio.get("account_sid"))
-    token = normalize_phone(twilio.get("auth_token"))
-    from_number = normalize_phone(twilio.get("from_number"))
-    to_number = normalize_phone(to_number)
-    if not sid or not token or not from_number or not to_number or not body:
-        return False, "Missing Twilio credentials, sender, recipient, or message body."
-
-    try:
-        response = requests.post(
-            f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
-            auth=(sid, token),
-            data={"From": from_number, "To": to_number, "Body": body},
-            timeout=10,
-        )
-    except Exception as error:
-        return False, str(error)
-
-    if 200 <= response.status_code < 300:
-        return True, "sent"
-    return False, f"{response.status_code}: {response.text[:200]}"
-
-def get_group_recipients(text_updates):
-    recipients = []
-    for slot in text_updates.get("recipients", {}).values():
-        if not slot.get("enabled"):
-            continue
-        phone = normalize_phone(slot.get("phone"))
-        if phone:
-            recipients.append(phone)
-    # Preserve order and remove duplicates.
-    seen = set()
-    unique = []
-    for phone in recipients:
-        if phone in seen:
-            continue
-        seen.add(phone)
-        unique.append(phone)
-    return unique
-
-def send_group_text_message(text_updates, body):
-    recipients = get_group_recipients(text_updates)
-    sent = 0
-    errors = []
-    for phone in recipients:
-        ok, info = send_twilio_sms(text_updates, phone, body)
-        if ok:
-            sent += 1
-        else:
-            errors.append(f"{phone}: {info}")
-    return sent, errors
-
-def build_text_update_messages(state, old_results, new_results):
-    text_updates = normalize_text_updates(state)
-    if not text_updates.get("enabled"):
-        return [], set()
-
-    update_config = text_updates.get("updates", {})
-    sent_event_ids = set(text_updates.get("sent_event_ids", []))
-    new_event_ids = set()
-    messages = []
-    teams = state.get("teams", {})
-    old_top3 = {}
-    new_top3 = {}
-    for coach_id, info in teams.items():
-        players = info.get("players", [])
-        old_top3[coach_id] = get_team_top_three_from_results(players, old_results)
-        new_top3[coach_id] = get_team_top_three_from_results(players, new_results)
-
-    team_totals = format_all_team_totals_from_results(state, new_results)
-
-    # Tee off, birdie, bogey, and top-3 changes are coach/player scoped.
-    for coach_id, info in teams.items():
-        coach_name = coach_short_name(coach_id)
-        current_top3 = new_top3.get(coach_id, [])
-
-        if update_config.get("tee_off", {}).get("enabled"):
-            for player in current_top3:
-                old_hole = old_results.get(player, {}).get("hole", "—")
-                new_hole = new_results.get(player, {}).get("hole", "—")
-                old_started = hole_number_from_status(old_hole) is not None
-                new_started = hole_number_from_status(new_hole) is not None
-                if not old_started and new_started and is_tee_time_status(old_hole):
-                    event_id = f"tee_off:{coach_id}:{player}:{new_hole}"
-                    if event_id not in sent_event_ids:
-                        body = render_update_template(
-                            update_config["tee_off"].get("template"),
-                            {
-                                "coach": coach_name,
-                                "player": player,
-                                "team_totals": team_totals,
-                            },
-                        )
-                        messages.append(body)
-                        new_event_ids.add(event_id)
-
-        for player in current_top3:
-            old_score = parse_golf_score(old_results.get(player, {}).get("score"))
-            new_score = parse_golf_score(new_results.get(player, {}).get("score"))
-            if old_score is None or new_score is None:
-                continue
-            delta = new_score - old_score
-            old_hole = old_results.get(player, {}).get("hole", "—")
-            new_hole = new_results.get(player, {}).get("hole", "—")
-            old_hole_num = hole_number_from_status(old_hole)
-            new_hole_num = hole_number_from_status(new_hole)
-            completed_hole = old_hole_num if old_hole_num is not None else new_hole_num
-            hole_label = completed_hole if completed_hole is not None else "?"
-
-            if delta == -1 and update_config.get("birdie", {}).get("enabled"):
-                event_id = f"birdie:{coach_id}:{player}:{new_score}:{hole_label}"
-                if event_id not in sent_event_ids:
-                    body = render_update_template(
-                        update_config["birdie"].get("template"),
-                        {"coach": coach_name, "player": player, "hole": hole_label},
-                    )
-                    messages.append(body)
-                    new_event_ids.add(event_id)
-
-            if delta == 1 and update_config.get("bogey", {}).get("enabled"):
-                event_id = f"bogey:{coach_id}:{player}:{new_score}:{hole_label}"
-                if event_id not in sent_event_ids:
-                    body = render_update_template(
-                        update_config["bogey"].get("template"),
-                        {"coach": coach_name, "player": player, "hole": hole_label},
-                    )
-                    messages.append(body)
-                    new_event_ids.add(event_id)
-
-        if update_config.get("top3_change", {}).get("enabled"):
-            old_list = old_top3.get(coach_id, [])
-            new_list = new_top3.get(coach_id, [])
-            if old_list != new_list:
-                dropped = [player for player in old_list if player not in new_list]
-                added = [player for player in new_list if player not in old_list]
-                max_len = max(len(dropped), len(added))
-                for idx in range(max_len):
-                    dropped_player = dropped[idx] if idx < len(dropped) else ""
-                    added_player = added[idx] if idx < len(added) else ""
-                    event_id = f"top3_change:{coach_id}:{','.join(old_list)}->{','.join(new_list)}:{idx}"
-                    if event_id in sent_event_ids:
-                        continue
-                    body = render_update_template(
-                        update_config["top3_change"].get("template"),
-                        {
-                            "coach": coach_name,
-                            "dropped_player": dropped_player or "(none)",
-                            "added_player": added_player or "(none)",
-                        },
-                    )
-                    messages.append(body)
-                    new_event_ids.add(event_id)
-
-    # Lead change is tournament-wide.
-    if update_config.get("lead_change", {}).get("enabled"):
-        old_leaders = text_updates.get("leaders", [])
-        new_leaders = get_leader_names_from_results(state, new_results)
-        if new_leaders and old_leaders != new_leaders:
-            event_id = f"lead_change:{','.join(new_leaders)}:{team_totals}"
-            if event_id not in sent_event_ids:
-                body = render_update_template(
-                    update_config["lead_change"].get("template"),
-                    {
-                        "leaders": ", ".join(coach_short_name(name) for name in new_leaders),
-                        "team_totals": team_totals,
-                    },
-                )
-                messages.append(body)
-                new_event_ids.add(event_id)
-
-    return messages, new_event_ids
-
 def latest_score_refresh_marker(state):
     try:
         refreshed_at = float(state.get("last_score_refresh_at", 0) or 0)
@@ -1446,35 +1276,18 @@ def refresh_scores(show_status=True):
             st.error("ESPN did not return matching player scores yet.")
         return False
 
-    pending_messages = []
-
     def mutator(state):
-        nonlocal pending_messages
         now = time.time()
         old_results = state.get("player_results", {})
         old_outcomes = state.get("hole_outcomes", {})
-        pending_messages, new_event_ids = build_text_update_messages(state, old_results, live_results)
         state["hole_outcomes"] = update_hole_outcomes(old_outcomes, old_results, live_results)
         state["player_results"] = live_results
         state["last_score_refresh_at"] = now
         state["last_score_refresh_attempt_at"] = now
-        text_updates = normalize_text_updates(state)
-        if new_event_ids:
-            merged_event_ids = set(text_updates.get("sent_event_ids", []))
-            merged_event_ids.update(new_event_ids)
-            text_updates["sent_event_ids"] = sorted(merged_event_ids)[-5000:]
-        text_updates["leaders"] = get_leader_names_from_results(state, live_results)
-        text_updates["top3_by_coach"] = {
-            coach_id: get_team_top_three_from_results(info.get("players", []), live_results)
-            for coach_id, info in state.get("teams", {}).items()
-        }
         return True
 
-    result, updated_state = mutate_shared_state(mutator, "Refresh scores")
+    result, _ = mutate_shared_state(mutator, "Refresh scores")
     if result:
-        text_updates = normalize_text_updates(updated_state if isinstance(updated_state, dict) else {})
-        for message in pending_messages:
-            send_group_text_message(text_updates, message)
         if show_status:
             st.success(f"Scores refreshed for {len(live_results)} golfers.")
         time.sleep(0.5)
@@ -1498,32 +1311,21 @@ def render_refresh_scores_button(key, state):
     if clicked:
         refresh_scores()
 
-def save_text_updates_settings(new_settings):
-    def mutator(state):
-        state = normalize_state(state)
-        state["text_updates"] = new_settings
-        normalize_text_updates(state)
-        return True
-    return mutate_shared_state(mutator, "Update text updates settings")
-
-def send_test_text_update(text_updates, recipient_name):
-    recipients = text_updates.get("recipients", {})
-    recipient = recipients.get(recipient_name, {})
-    phone = normalize_phone(recipient.get("phone"))
-    if not phone:
-        return False, "Selected recipient does not have a phone number."
-    message = f"Test message from Leita Fantasy Golf ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})."
-    return send_twilio_sms(text_updates, phone, message)
-
 def leaderboard_owner_image_html(golfer, owner_lookup):
     coach_id = owner_lookup.get(golfer)
     if not coach_id:
         return ""
-    image_path = COACH_IMAGES.get(coach_id)
+    image_path = coach_photo_filename(coach_id)
     data_uri = image_to_data_uri(image_path) if image_path else ""
+    color = teams_data.get(coach_id, {}).get("color", "#555555")
     if not data_uri:
-        return ""
-    color = COACH_COLORS.get(coach_id, "#555555")
+        safe_filename = html.escape(image_path)
+        return (
+            f"<div title='{safe_filename}' style='width:2rem; height:2rem; border-radius:50%; "
+            f"border:2px solid {color}; color:{color}; display:flex; align-items:center; "
+            f"justify-content:center; font-size:.45rem; line-height:1; text-align:center; overflow:hidden;'>"
+            f"{safe_filename}</div>"
+        )
     safe_coach = html.escape(coach_id)
     return (
         f"<img src='{data_uri}' alt='{safe_coach}' title='{safe_coach}' "
@@ -1575,9 +1377,12 @@ def render_tournament_leaderboard(tournament):
     st.markdown("".join(leaderboard_parts), unsafe_allow_html=True)
 
 def get_coach_for_pick(pick_num, order):
-    round_idx = (pick_num - 1) // 3
-    pos = (pick_num - 1) % 3
-    return order[pos] if round_idx % 2 == 0 else order[2 - pos]
+    team_count = len(order)
+    if team_count == 0:
+        return ""
+    round_idx = (pick_num - 1) // team_count
+    pos = (pick_num - 1) % team_count
+    return order[pos] if round_idx % 2 == 0 else order[team_count - 1 - pos]
 
 def derive_picks_from_state(state):
     picks = []
@@ -1699,13 +1504,55 @@ def save_draft_order(new_order):
         return True
     return mutate_shared_state(mutator, "Update draft order")
 
-def save_team_names(new_teams):
+def save_app_settings(app_title, payout_rules):
     def mutator(state):
-        for coach, new_name in new_teams.items():
-            if coach in state["teams"]:
-                state["teams"][coach]["team_name"] = new_name
+        state = normalize_state(state)
+        state["app_title"] = str(app_title or "").strip() or DEFAULT_APP_TITLE
+        state["payout_rules"] = str(payout_rules or "").strip() or DEFAULT_PAYOUT_RULES
         return True
-    return mutate_shared_state(mutator, "Update team names")
+    return mutate_shared_state(mutator, "Update app settings")
+
+def save_uploaded_thumbnail(uploaded_file):
+    if uploaded_file is None:
+        return False, "No thumbnail selected."
+    data = uploaded_file.getvalue()
+    if not data:
+        return False, "Uploaded thumbnail was empty."
+    mime_type = uploaded_file.type or "image/png"
+    encoded = base64.b64encode(data).decode("utf-8")
+    try:
+        with open(THUMBNAIL_PATH, "wb") as thumbnail_file:
+            thumbnail_file.write(data)
+    except Exception:
+        pass
+
+    def mutator(state):
+        state = normalize_state(state)
+        state["thumbnail"] = {
+            "filename": uploaded_file.name,
+            "mime_type": mime_type,
+            "data_uri": f"data:{mime_type};base64,{encoded}",
+        }
+        return True
+    result, _ = mutate_shared_state(mutator, "Update app thumbnail")
+    return bool(result), "Thumbnail saved." if result else "Thumbnail was not saved."
+
+def save_team_settings(new_teams):
+    def mutator(state):
+        state = normalize_state(state)
+        chosen_colors = [settings.get("color") for settings in new_teams.values()]
+        if len(chosen_colors) != len(set(chosen_colors)):
+            st.warning("Each coach must have a different color.")
+            return False
+        for coach, settings in new_teams.items():
+            if coach in state["teams"]:
+                state["teams"][coach]["team_name"] = str(settings.get("team_name") or coach).strip() or coach
+                color = str(settings.get("color") or state["teams"][coach].get("color") or "").strip()
+                if color in TEAM_COLOR_BY_HEX:
+                    state["teams"][coach]["color"] = color
+                state["teams"][coach]["image"] = coach_photo_filename(coach)
+        return True
+    return mutate_shared_state(mutator, "Update team settings")
 
 def get_player_result(player):
     result = PLAYER_RESULTS_DISPLAY.get(player, {"score": "N/A", "hole": "—", "recent_outcomes": [], "competitor_id": ""})
@@ -1783,13 +1630,6 @@ def get_team_total(players):
     total = sum(score_value for score_value, _, _, _ in top_three)
     return format_golf_score(total)
 
-def get_total_10_net_score(players):
-    scored_players = get_sorted_scored_players(players)
-    if not scored_players:
-        return "N/A"
-    total = sum(score_value for score_value, _, _, _ in scored_players)
-    return format_golf_score(total)
-
 def parse_american_odds(value):
     try:
         if value is None:
@@ -1848,7 +1688,6 @@ state, state_sha = load_state_from_github()
 SELECTED_TOURNAMENT, TOURNAMENT_OPTIONS = current_tournament_selection(state)
 teams_data = state["teams"]
 draft_order = state["draft_order"]
-text_updates = normalize_text_updates(state)
 PLAYER_RESULTS = state.get("player_results", {})
 PLAYER_HOLE_OUTCOMES = state.get("hole_outcomes", {})
 PLAYER_RESULTS_DISPLAY = {
@@ -1873,12 +1712,18 @@ selected_tournament_date = format_tournament_date_range(
     SELECTED_TOURNAMENT.get("end_date"),
 )
 selected_tournament_location = html.escape(str(SELECTED_TOURNAMENT.get("location") or "Location TBA"))
+app_title = html.escape(str(state.get("app_title") or DEFAULT_APP_TITLE))
+payout_rules = html.escape(str(state.get("payout_rules") or DEFAULT_PAYOUT_RULES))
 
 st.markdown(
-    f"<div class='app-title'>{app_logo_html()}<h1>Leita Fantasy Golf</h1></div>",
+    f"<div class='app-title'>{app_logo_html()}<h1>{app_title}</h1></div>",
     unsafe_allow_html=True,
 )
-st.caption(f"**{selected_tournament_title}** • {selected_tournament_date} • {selected_tournament_location}")
+st.markdown(
+    f"<div class='tournament-meta'>{selected_tournament_title} "
+    f"<span>• {html.escape(selected_tournament_date)} • {selected_tournament_location}</span></div>",
+    unsafe_allow_html=True,
+)
 
 st.subheader("Standings")
 
@@ -1891,19 +1736,14 @@ for coach_id, info in teams_data.items():
         top_three_total = format_golf_score(sum(score_value for score_value, _, _, _ in top_three_scored))
     else:
         top_three_total = "N/A"
-    if scored_players:
-        total_10 = format_golf_score(sum(score_value for score_value, _, _, _ in scored_players))
-    else:
-        total_10 = "N/A"
     team_render_data[coach_id] = {
         "team_name": info.get("team_name", coach_id),
         "players": players,
-        "color": COACH_COLORS.get(coach_id, "#555555"),
-        "face_html": coach_image_html(coach_id),
+        "color": info.get("color", "#555555"),
+        "face_html": coach_image_html(coach_id, info.get("color", "#555555")),
         "scored_players": top_three_scored,
         "top_three_set": {player for _, _, player, _ in top_three_scored},
         "top_three_total": top_three_total,
-        "total_10": total_10,
     }
 
 for coach_id, data in team_render_data.items():
@@ -1923,7 +1763,7 @@ for coach_id, data in team_render_data.items():
             recent_outcomes = get_recent_outcomes_for_standings(player, result) if should_show_recent_hole_outcomes(result) else []
             recent_outcomes_text = format_recent_hole_outcomes(recent_outcomes)
             top3_html += (
-                f"<div style='margin:4px 0; color:{color}; font-size:1.05rem;'>"
+                f"<div style='margin:3px 0; color:{color}; font-size:.92rem;'>"
                 f"{safe_player} <span style='font-weight:700;'>({score})</span> {html.escape(status_text)}{recent_outcomes_text}"
                 f"</div>"
             )
@@ -1934,15 +1774,11 @@ for coach_id, data in team_render_data.items():
 
     safe_total = html.escape(total)
     card = (
-        f"<div style='border:5px solid {color}; background-color:{color}18; border-radius:16px; "
-        f"padding:20px 24px; margin-bottom:1.8rem; box-shadow:0 4px 15px rgba(255,255,255,.08);'>"
-        f"<div class='team-heading' style='color:{color}; font-size:1.75rem; font-weight:800;'>"
+        f"<div class='compact-card' style='border:3px solid {color}; background-color:{color}18;'>"
+        f"<div class='team-heading' style='color:{color}; font-size:1.15rem; font-weight:850;'>"
         f"{face_html}<span>{html.escape(team_name)}</span>"
-        f"<span style='display:inline-flex; align-items:center; justify-content:center; "
-        f"width:4.25rem; height:4.25rem; margin-left:10px; border-radius:50%; "
-        f"background:{color}; color:#000; font-size:2.1875rem; font-weight:800; "
-        f"line-height:1;'>{safe_total}</span></div>"
-        f"<div style='line-height:1.5;'>{top3_html}</div>"
+        f"<span class='score-badge' style='background:{color};'>{safe_total}</span></div>"
+        f"<div style='line-height:1.35; margin-top:7px;'>{top3_html}</div>"
         f"</div>"
     )
     st.markdown(card, unsafe_allow_html=True)
@@ -1951,54 +1787,53 @@ render_refresh_scores_button("refresh_scores_top", state)
 
 st.subheader("Team Rosters")
 
-team_cols = st.columns(3)
+for row_start in range(0, len(teams_data), 3):
+    team_cols = st.columns(3)
+    for idx, (coach_id, info) in enumerate(list(teams_data.items())[row_start:row_start + 3]):
+        with team_cols[idx]:
+            data = team_render_data[coach_id]
+            team_name = data["team_name"]
+            players = data["players"]
+            color = data["color"]
+            face_html = data["face_html"]
+            total = data["top_three_total"]
+            safe_total = html.escape(total)
+            lowest_three_net_score = html.escape(data["top_three_total"])
+            top_three_lowest_score_players = data["top_three_set"]
 
-for idx, (coach_id, info) in enumerate(teams_data.items()):
-    with team_cols[idx]:
-        data = team_render_data[coach_id]
-        team_name = data["team_name"]
-        players = data["players"]
-        color = data["color"]
-        face_html = data["face_html"]
-        total = data["top_three_total"]
-        safe_total = html.escape(total)
-        total_10_net_score = html.escape(data["total_10"])
-        top_three_lowest_score_players = data["top_three_set"]
+            roster_parts = [
+                f"<div class='compact-card' style='border:3px solid {color}; background-color:{color}18;'>",
+                f"<div class='team-heading' style='color:{color}; font-size:1.08rem; font-weight:850; margin-bottom:10px;'>"
+                f"{face_html}<span>{html.escape(team_name)}</span>"
+                f"<span class='score-badge' style='background:{color};'>{safe_total}</span></div>",
+            ]
 
-        roster_parts = [
-            f"<div style='border:5px solid {color}; background-color:{color}18; border-radius:16px; padding:20px 24px; margin-bottom:1.8rem;'>",
-            f"<div class='team-heading' style='color:{color}; font-size:1.75rem; font-weight:800; margin-bottom:18px;'>"
-            f"{face_html}<span>{html.escape(team_name)}</span>"
-            f"<span style='display:inline-flex; align-items:center; justify-content:center; "
-            f"width:4.25rem; height:4.25rem; margin-left:10px; border-radius:50%; "
-            f"background:{color}; color:#000; font-size:2.1875rem; font-weight:800; "
-            f"line-height:1;'>{safe_total}</span></div>",
-        ]
+            if not players:
+                roster_parts.append("<div style='color:#aaa; font-style:italic;'>No golfers drafted yet</div>")
+            else:
+                roster_parts.append("<table class='roster-table'><thead><tr><th>Golfer</th><th>Score</th><th>Hole</th></tr></thead><tbody>")
+                for player in players:
+                    safe_player = html.escape(display_player_name(player))
+                    result = get_player_result(player)
+                    score = html.escape(str(result.get("score", "N/A")))
+                    hole = html.escape(display_hole_value(result.get("hole", "—")))
+                    row_class = " class='roster-top-three'" if player in top_three_lowest_score_players else ""
+                    roster_parts.append(f"<tr{row_class}><td>{safe_player}</td><td>{score}</td><td>{hole}</td></tr>")
+                roster_parts.append("</tbody></table>")
 
-        if not players:
-            roster_parts.append("<div style='color:#aaa; font-style:italic;'>No golfers drafted yet</div>")
-        else:
-            roster_parts.append("<table class='roster-table'><thead><tr><th>Golfer</th><th>Score</th><th>Hole</th></tr></thead><tbody>")
-            for player in players:
-                safe_player = html.escape(display_player_name(player))
-                result = get_player_result(player)
-                score = html.escape(str(result.get("score", "N/A")))
-                hole = html.escape(display_hole_value(result.get("hole", "—")))
-                row_class = " class='roster-top-three'" if player in top_three_lowest_score_players else ""
-                roster_parts.append(f"<tr{row_class}><td>{safe_player}</td><td>{score}</td><td>{hole}</td></tr>")
-            roster_parts.append("</tbody></table>")
-
-        roster_parts.append(
-            f"<div style='color:#fff; font-size:.85rem; font-style:italic; margin-top:12px;'>"
-            f"Total 10 Net Score = {total_10_net_score}</div>"
-        )
-        roster_parts.append("</div>")
-        st.markdown("".join(roster_parts), unsafe_allow_html=True)
+            roster_parts.append(
+                f"<div style='color:#fff; font-size:.78rem; font-style:italic; margin-top:9px;'>"
+                f"Lowest 3 Net Score = {lowest_three_net_score}</div>"
+            )
+            roster_parts.append("</div>")
+            st.markdown("".join(roster_parts), unsafe_allow_html=True)
 
 render_refresh_scores_button("refresh_scores_middle", state)
 
 st.subheader("Tournament Leaderboard")
 render_tournament_leaderboard(SELECTED_TOURNAMENT)
+
+st.markdown(f"<div class='payout-rules-box'>{payout_rules}</div>", unsafe_allow_html=True)
 
 with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
     if not state["draft_enabled"]:
@@ -2028,7 +1863,7 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
                     st.rerun()
 
         if current_pick > MAX_PICKS:
-            st.success("🎉 Draft Complete! All 30 picks are in.")
+            st.success(f"🎉 Draft Complete! All {MAX_PICKS} picks are in.")
         elif state["draft_active"]:
             current_coach = get_coach_for_pick(current_pick, draft_order)
             st.markdown(f"## 🔥 CURRENT PICK: **{current_coach}** — Pick #{current_pick}")
@@ -2046,13 +1881,13 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
         grid_html = """
         <style>
         @keyframes flash { 0% { background-color:#ffeb3b; } 50% { background-color:#fff59d; } 100% { background-color:#ffeb3b; } }
-        .draft-table { width:100%; border-collapse:collapse; font-size:.95rem; background:#000; color:#fff; }
-        .draft-table th, .draft-table td { border:1px solid #555; padding:10px; text-align:center; }
+        .draft-table { width:100%; min-width:980px; border-collapse:collapse; font-size:.78rem; background:#000; color:#fff; }
+        .draft-table th, .draft-table td { border:1px solid #555; padding:7px; text-align:center; }
         .draft-table th { background-color:#1f1f1f; color:#fff; }
         .current-cell { animation:flash 1.2s infinite; font-weight:bold; }
         .stopped-cell { background-color:#333; color:#aaa; font-weight:bold; }
         </style>
-        <table class="draft-table"><tr><th>Round</th>
+        <div class="draft-table-wrap"><table class="draft-table"><tr><th>Round</th>
         """
 
         for coach in draft_order:
@@ -2061,11 +1896,12 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
 
         for round_num in range(10):
             grid_html += f"<tr><td><b>Round {round_num + 1}</b></td>"
-            for column_num in range(3):
+            team_count = len(draft_order)
+            for column_num in range(team_count):
                 if round_num % 2 == 0:
-                    pick_num = round_num * 3 + column_num + 1
+                    pick_num = round_num * team_count + column_num + 1
                 else:
-                    pick_num = round_num * 3 + (2 - column_num) + 1
+                    pick_num = round_num * team_count + (team_count - 1 - column_num) + 1
 
                 picked_golfer = next((pick[2] for pick in picks if pick[0] == pick_num), None)
                 is_current = pick_num == current_pick
@@ -2086,13 +1922,15 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
                 grid_html += f"<td {cell_style}>{cell}</td>"
             grid_html += "</tr>"
 
-        grid_html += "</table>"
+        grid_html += "</table></div>"
         st.markdown(grid_html, unsafe_allow_html=True)
 
         st.subheader("Available Golfers — Click to Draft")
         st.caption("Sorted by odds, then last name. Use search and pages for faster loading on mobile.")
 
-        sorted_players = sorted(PGA_PLAYERS, key=odds_sort_key)
+        draft_player_pool, field_note = get_draft_player_pool(SELECTED_TOURNAMENT)
+        st.caption(field_note)
+        sorted_players = sorted(draft_player_pool, key=odds_sort_key)
         available = [golfer for golfer in sorted_players if golfer not in picked_golfers]
         golfer_search = st.text_input("Find Golfer", value="", key="available_golfer_search").strip().lower()
         if golfer_search:
@@ -2135,85 +1973,32 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
                             if result:
                                 st.rerun()
 
-with st.expander("📱 Text Updates", expanded=False):
-    st.subheader("Text Updates")
-
-    with st.form("text_updates_settings_form"):
-        updates_enabled = st.toggle("Text Updates", value=text_updates.get("enabled", False))
-
-        st.markdown("### Twilio Settings")
-        st.caption("Ensure Twilio settings (account SID, authorization token, and from number) are entered into the Streamlit.io secrets file.")
-
-        st.markdown("### Group Recipients")
-        recipients_cfg = text_updates.get("recipients", {})
-        recipient_names = ["Peter", "Jayme", "Spencer"]
-        new_recipients = {}
-        for recipient_name in recipient_names:
-            slot = recipients_cfg.get(recipient_name, {})
-            col_enabled, col_phone = st.columns([1, 3])
-            with col_enabled:
-                enabled = st.toggle(
-                    f"{recipient_name} On",
-                    value=slot.get("enabled", False),
-                    key=f"text_updates_recipient_enabled_{recipient_name}",
-                )
-            with col_phone:
-                phone = st.text_input(
-                    f"{recipient_name} Phone",
-                    value=slot.get("phone", ""),
-                    key=f"text_updates_recipient_phone_{recipient_name}",
-                )
-            new_recipients[recipient_name] = {"enabled": enabled, "phone": phone}
-
-        st.markdown("### Update Types")
-        updates_cfg = text_updates.get("updates", {})
-        new_updates_cfg = {}
-        for update_key, info in TEXT_UPDATE_TYPES.items():
-            slot = updates_cfg.get(update_key, {})
-            st.markdown(f"#### {info['label']}")
-            enabled = st.toggle(
-                f"{info['label']} On",
-                value=slot.get("enabled", True),
-                key=f"text_updates_update_enabled_{update_key}",
-            )
-            template = st.text_area(
-                f"{info['label']} Text",
-                value=slot.get("template", info["template"]),
-                key=f"text_updates_update_template_{update_key}",
-                height=80,
-            )
-            new_updates_cfg[update_key] = {"enabled": enabled, "template": template}
-
-        save_settings = st.form_submit_button("Save Text Update Settings & Phone Numbers", use_container_width=True)
-
-        if save_settings:
-            new_settings = {
-                "enabled": updates_enabled,
-                "twilio": text_updates.get("twilio", {}),
-                "recipients": new_recipients,
-                "updates": new_updates_cfg,
-                "sent_event_ids": text_updates.get("sent_event_ids", []),
-                "top3_by_coach": text_updates.get("top3_by_coach", {}),
-                "leaders": text_updates.get("leaders", []),
-            }
-            result, _ = save_text_updates_settings(new_settings)
+with st.expander("🔧 Admin Section", expanded=False):
+    st.subheader("App Settings")
+    with st.form("app_settings_form"):
+        new_app_title = st.text_input("App Title", value=state.get("app_title", DEFAULT_APP_TITLE))
+        new_payout_rules = st.text_area("Payout Rules", value=state.get("payout_rules", DEFAULT_PAYOUT_RULES), height=110)
+        if st.form_submit_button("💾 Save App Settings", use_container_width=True):
+            result, _ = save_app_settings(new_app_title, new_payout_rules)
             if result:
-                st.success("Text update settings saved.")
+                st.success("App settings saved.")
                 st.rerun()
             else:
-                st.error("Could not save text update settings.")
+                st.error("App settings were not saved.")
 
-    st.markdown("### Test Message")
-    st.caption("Save settings first to test the latest Twilio credentials and phone numbers.")
-    test_target = st.selectbox("Test Recipient", options=["Peter", "Jayme", "Spencer"], key="text_updates_test_target")
-    if st.button("Send TEST MESSAGE", key="text_updates_send_test_message", use_container_width=True):
-        ok, info = send_test_text_update(text_updates, test_target)
+    st.subheader("iMessage Thumbnail")
+    uploaded_thumbnail = st.file_uploader("Thumbnail Image", type=["png", "jpg", "jpeg"], key="thumbnail_upload")
+    thumbnail_data_uri = (state.get("thumbnail") or {}).get("data_uri")
+    if thumbnail_data_uri:
+        st.image(thumbnail_data_uri, width=160)
+    if st.button("💾 Save Thumbnail", disabled=uploaded_thumbnail is None, use_container_width=True):
+        ok, message = save_uploaded_thumbnail(uploaded_thumbnail)
         if ok:
-            st.success(f"Test message sent to {test_target}.")
+            st.success(message)
+            st.rerun()
         else:
-            st.error(f"Test message failed: {info}")
+            st.error(message)
 
-with st.expander("🔧 Admin Section", expanded=False):
     st.subheader("Tournament Selection")
 
     if not TOURNAMENT_OPTIONS:
@@ -2305,16 +2090,22 @@ with st.expander("🔧 Admin Section", expanded=False):
     else:
         coaches = list(teams_data.keys())
         current_order = draft_order
-        order_col1, order_col2, order_col3 = st.columns(3)
-
-        with order_col1:
-            first_pick = st.selectbox("1st Pick", options=coaches, index=coaches.index(current_order[0]) if current_order[0] in coaches else 0, key="draft_order_first")
-        with order_col2:
-            second_pick = st.selectbox("2nd Pick", options=coaches, index=coaches.index(current_order[1]) if current_order[1] in coaches else 1, key="draft_order_second")
-        with order_col3:
-            third_pick = st.selectbox("3rd Pick", options=coaches, index=coaches.index(current_order[2]) if current_order[2] in coaches else 2, key="draft_order_third")
-
-        proposed_order = [first_pick, second_pick, third_pick]
+        proposed_order = []
+        for row_start in range(0, len(coaches), 3):
+            order_cols = st.columns(3)
+            for offset, col in enumerate(order_cols):
+                slot_index = row_start + offset
+                if slot_index >= len(coaches):
+                    continue
+                with col:
+                    current_coach = current_order[slot_index] if slot_index < len(current_order) else coaches[slot_index]
+                    selected_coach = st.selectbox(
+                        f"{slot_index + 1}{'st' if slot_index == 0 else 'nd' if slot_index == 1 else 'rd' if slot_index == 2 else 'th'} Pick",
+                        options=coaches,
+                        index=coaches.index(current_coach) if current_coach in coaches else slot_index,
+                        key=f"draft_order_{slot_index}",
+                    )
+                    proposed_order.append(selected_coach)
 
         if len(set(proposed_order)) < len(proposed_order):
             st.error("Each draft slot must have a different coach.")
@@ -2324,24 +2115,52 @@ with st.expander("🔧 Admin Section", expanded=False):
                 st.success("Draft order saved.")
                 st.rerun()
 
-    st.subheader("Edit Team Names")
+    st.subheader("Team Names & Colors")
+    used_colors = {info.get("color") for info in teams_data.values() if info.get("color")}
+    palette_parts = []
+    for label, color in TEAM_COLOR_OPTIONS:
+        chip_class = "color-chip used" if color in used_colors else "color-chip"
+        palette_parts.append(
+            f"<span title='{html.escape(label)}' class='{chip_class}' style='background:{color};'></span>"
+        )
+    st.markdown("".join(palette_parts), unsafe_allow_html=True)
 
-    new_names = {}
+    new_team_settings = {}
+    for row_start in range(0, len(teams_data), 3):
+        team_setting_cols = st.columns(3)
+        for idx, (coach_id, info) in enumerate(list(teams_data.items())[row_start:row_start + 3]):
+            with team_setting_cols[idx]:
+                st.markdown(f"### {coach_id}")
+                team_name = st.text_input("Team Name", value=info.get("team_name", coach_id), key=f"name_{coach_id}")
+                current_color = info.get("color", default_team_color(idx))
+                colors_used_by_others = {
+                    other_info.get("color")
+                    for other_id, other_info in teams_data.items()
+                    if other_id != coach_id and other_info.get("color")
+                }
+                available_colors = [current_color] + [
+                    color for _, color in TEAM_COLOR_OPTIONS
+                    if color not in colors_used_by_others and color != current_color
+                ]
+                selected_color = st.selectbox(
+                    "Color",
+                    options=available_colors,
+                    index=0,
+                    format_func=lambda color: f"{TEAM_COLOR_BY_HEX.get(color, color)} ({color})",
+                    key=f"color_{coach_id}",
+                )
+                st.caption(f"Photo file: {coach_photo_filename(coach_id)}")
+                new_team_settings[coach_id] = {"team_name": team_name, "color": selected_color}
 
-    for coach_id, info in teams_data.items():
-        st.markdown(f"### {coach_id}")
-        new_name = st.text_input("Team Name", value=info.get("team_name", coach_id), key=f"name_{coach_id}")
-        new_names[coach_id] = new_name
-
-    if st.button("💾 Save Team Names"):
-        result, _ = save_team_names(new_names)
+    if st.button("💾 Save Team Settings", use_container_width=True):
+        result, _ = save_team_settings(new_team_settings)
         if result:
-            st.success("Team names saved!")
+            st.success("Team settings saved!")
             st.rerun()
         else:
-            st.error("Team names were not saved. Please try again.")
+            st.error("Team settings were not saved. Please try again.")
 
-st.caption("Leita Fantasy Golf • Built by Jayme Leita")
+st.caption(f"{html.escape(str(state.get('app_title') or DEFAULT_APP_TITLE))} • Built by Jayme Leita")
 if st.session_state.get("perf_debug_enabled", False):
     render_ms = int((time.perf_counter() - RENDER_T0) * 1000)
     team_count = len(teams_data)
