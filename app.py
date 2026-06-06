@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 RENDER_T0 = time.perf_counter()
 
 st.set_page_config(
-    page_title="Leita Fantasy Golf",
+    page_title="DeskCheck Golf Challenge",
     page_icon="thumb.png",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -47,12 +47,15 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .refresh-button-wrap div[data-testid="stButton"] > button:hover {
     background:#ff7a00!important; color:#000!important; border-color:#ffe600!important;
 }
+.top-thumbnail-wrap { width:100%; display:flex; justify-content:center; align-items:center; margin:.2rem 0 .55rem 0; }
+.top-thumbnail { max-width:min(100%, 420px); max-height:150px; width:auto; height:auto; object-fit:contain; border-radius:8px; display:block; }
 .app-title { display:flex; align-items:center; gap:14px; margin:.6rem 0 .35rem 0; }
 .app-title h1 { margin:0; padding:0; font-size:2.75rem; line-height:1.1; font-weight:800; }
 .app-logo { width:3.5em; height:3.5em; object-fit:contain; flex:0 0 auto; }
 .tournament-meta { font-size:1.2rem; line-height:1.45; color:#f2f2f2; margin:0 0 1.1rem 0; font-weight:700; }
 .tournament-meta span { color:#c9d4df; font-weight:650; }
 .payout-rules-box { border:1px solid #444; background:#0b0b0b; border-left:5px solid #ffeb3b; border-radius:8px; padding:12px 14px; margin:1.2rem 0; color:#fff; font-size:.98rem; line-height:1.4; }
+.payout-rules-label { color:#ffeb3b; font-size:.76rem; font-weight:1000; letter-spacing:.04em; text-transform:uppercase; margin-bottom:5px; }
 .compact-card { border-width:3px!important; border-radius:10px!important; padding:12px 14px!important; margin-bottom:1rem!important; box-shadow:0 3px 10px rgba(255,255,255,.06); }
 .roster-table { width:100%; border-collapse:collapse; font-size:.82rem; background:#080808; color:#fff; overflow:hidden; border-radius:8px; }
 .roster-table th { text-align:left; padding:7px 8px; color:#fff; border-bottom:1px solid rgba(255,255,255,.18); font-weight:800; }
@@ -62,8 +65,9 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .draft-stopped-note { color:#bbb; font-style:italic; margin:.5rem 0 1rem 0; }
 .team-heading { display:flex; align-items:center; flex-wrap:wrap; gap:14px; min-width:0; }
 .team-heading span { min-width:0; overflow-wrap:anywhere; }
-.team-face { width:9em; height:9em; border-radius:50%; object-fit:cover; border:4px solid currentColor; flex:0 0 auto; box-shadow:0 0 22px currentColor; }
-.team-face-placeholder { width:9em; height:9em; border-radius:50%; border:4px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.95rem; font-weight:900; line-height:1.05; text-align:center; overflow:hidden; flex:0 0 auto; padding:10px; background:#050505; box-shadow:0 0 22px currentColor; }
+.team-name { font-size:1.2em; font-weight:950; }
+.team-face { width:7rem; height:7rem; border-radius:50%; object-fit:cover; border:4px solid currentColor; flex:0 0 auto; box-shadow:0 0 18px currentColor; }
+.team-face-placeholder { width:7rem; height:7rem; border-radius:50%; border:4px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:900; line-height:1.05; text-align:center; overflow:hidden; flex:0 0 auto; padding:8px; background:#050505; box-shadow:0 0 18px currentColor; }
 .score-badge { display:inline-flex; align-items:center; justify-content:center; width:3.1rem; height:3.1rem; margin-left:auto; border-radius:50%; color:#000; font-size:1.35rem; font-weight:900; line-height:1; flex:0 0 auto; }
 .color-chip { display:inline-flex; align-items:center; justify-content:center; width:1.05rem; height:1.05rem; border-radius:50%; border:1px solid rgba(255,255,255,.55); margin-right:.35rem; vertical-align:-.18rem; }
 .color-chip.used { opacity:.28; filter:grayscale(.75); }
@@ -72,9 +76,11 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
     div[data-testid="column"] { width:100%!important; flex:1 1 100%!important; }
     div[data-testid="stButton"] > button { min-height:54px!important; font-size:.98rem!important; }
     .refresh-button-wrap div[data-testid="stButton"] > button { min-height:58px!important; font-size:1.05rem!important; }
+    .top-thumbnail-wrap { margin:.1rem 0 .35rem 0; }
+    .top-thumbnail { max-width:100%; max-height:18vh; }
     .app-title h1 { font-size:2rem; }
     .tournament-meta { font-size:1.02rem; }
-    .team-face, .team-face-placeholder { width:7em; height:7em; }
+    .team-face, .team-face-placeholder { width:5rem; height:5rem; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -95,7 +101,7 @@ REPO_OWNER = "theleitas"
 REPO_NAME = "leita-fantasy-golf"
 STATE_FILE_PATH = "draft_state.json"
 BRANCH = "main"
-DEFAULT_APP_TITLE = "Leita Fantasy Golf"
+DEFAULT_APP_TITLE = "DeskCheck Golf Challenge"
 DEFAULT_COACHES = ["McClure", "Red", "Marco", "Brax", "CMO", "Handler", "A-Burst", "Lutt", "Jeff"]
 MAX_ROUNDS = 10
 MAX_PICKS = len(DEFAULT_COACHES) * MAX_ROUNDS
@@ -526,6 +532,24 @@ def image_html(path, class_name):
 
 def app_logo_html():
     return image_html(APP_LOGO, "app-logo")
+
+def thumbnail_data_uri_for_display(state):
+    saved_thumbnail = state.get("thumbnail") if isinstance(state.get("thumbnail"), dict) else {}
+    saved_data_uri = str(saved_thumbnail.get("data_uri") or "").strip()
+    if saved_data_uri:
+        return saved_data_uri
+    return image_to_data_uri(THUMBNAIL_PATH)
+
+def top_thumbnail_html(state):
+    data_uri = thumbnail_data_uri_for_display(state)
+    if not data_uri:
+        return ""
+    safe_data_uri = html.escape(data_uri, quote=True)
+    return (
+        "<div class='top-thumbnail-wrap'>"
+        f"<img class='top-thumbnail' src='{safe_data_uri}' alt='iMessage thumbnail'>"
+        "</div>"
+    )
 
 def coach_image_html(coach_id, color):
     image_path = coach_photo_filename(coach_id)
@@ -1724,6 +1748,7 @@ selected_tournament_location = html.escape(str(SELECTED_TOURNAMENT.get("location
 app_title = html.escape(str(state.get("app_title") or DEFAULT_APP_TITLE))
 payout_rules = html.escape(str(state.get("payout_rules") or DEFAULT_PAYOUT_RULES))
 
+st.markdown(top_thumbnail_html(state), unsafe_allow_html=True)
 st.markdown(
     f"<div class='app-title'>{app_logo_html()}<h1>{app_title}</h1></div>",
     unsafe_allow_html=True,
@@ -1785,7 +1810,7 @@ for coach_id, data in team_render_data.items():
     card = (
         f"<div class='compact-card' style='border:3px solid {color}; background-color:{color}18;'>"
         f"<div class='team-heading' style='color:{color}; font-size:1.15rem; font-weight:850;'>"
-        f"{face_html}<span>{html.escape(team_name)}</span>"
+        f"{face_html}<span class='team-name'>{html.escape(team_name)}</span>"
         f"<span class='score-badge' style='background:{color};'>{safe_total}</span></div>"
         f"<div style='line-height:1.35; margin-top:7px;'>{top3_html}</div>"
         f"</div>"
@@ -1813,7 +1838,7 @@ for row_start in range(0, len(teams_data), 3):
             roster_parts = [
                 f"<div class='compact-card' style='border:3px solid {color}; background-color:{color}18;'>",
                 f"<div class='team-heading' style='color:{color}; font-size:1.08rem; font-weight:850; margin-bottom:10px;'>"
-                f"{face_html}<span>{html.escape(team_name)}</span>"
+                f"{face_html}<span class='team-name'>{html.escape(team_name)}</span>"
                 f"<span class='score-badge' style='background:{color};'>{safe_total}</span></div>",
             ]
 
@@ -1842,7 +1867,10 @@ render_refresh_scores_button("refresh_scores_middle", state)
 st.subheader("Tournament Leaderboard")
 render_tournament_leaderboard(SELECTED_TOURNAMENT)
 
-st.markdown(f"<div class='payout-rules-box'>{payout_rules}</div>", unsafe_allow_html=True)
+st.markdown(
+    f"<div class='payout-rules-box'><div class='payout-rules-label'>Payout Rules</div>{payout_rules}</div>",
+    unsafe_allow_html=True,
+)
 
 with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
     if not state["draft_enabled"]:
@@ -2125,7 +2153,7 @@ with st.expander("🔧 Admin Section", expanded=False):
                 st.rerun()
 
     st.subheader("Team Names & Colors")
-    st.caption("Color selection is first come, first serve, I'm a chemical engineer, not an IT guy.")
+    st.caption("Color selection is first come, first serve. I'm a chemical engineer, not an IT guy.")
     used_colors = {info.get("color") for info in teams_data.values() if info.get("color")}
     palette_parts = []
     for label, color in TEAM_COLOR_OPTIONS:

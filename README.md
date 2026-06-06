@@ -1,4 +1,4 @@
-# Leita Fantasy Golf
+# DeskCheck Golf Challenge
 
 Separate Streamlit codebase for the golf fantasy draft app.
 
@@ -14,7 +14,7 @@ This project was created from the existing PGA Championship draft app as a separ
 
 - The app lives in its own folder: `leita-fantasy-golf`.
 - The main app is its own file: `app.py`.
-- The visible header is customizable from Admin and defaults to `Leita Fantasy Golf`.
+- The visible header is customizable from Admin and defaults to `DeskCheck Golf Challenge`.
 - The GitHub repo target is now `leita-fantasy-golf`, not the old app repo.
 - If no GitHub token is configured, state loads from and saves to this folder's local `draft_state.json`.
 - Text alert features were removed.
