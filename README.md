@@ -31,7 +31,7 @@ streamlit run app.py
 Use this GitHub Pages URL when sharing the app in iMessage:
 
 ```text
-https://theleitas.github.io/leita-fantasy-golf/
+https://theleitas.github.io/leita-fantasy-golf/index.html?v=5
 ```
 
 That page supplies the preview thumbnail and then redirects visitors to the Streamlit app.

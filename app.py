@@ -48,7 +48,7 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
     background:#ff7a00!important; color:#000!important; border-color:#ffe600!important;
 }
 .top-thumbnail-wrap { width:100%; display:flex; justify-content:center; align-items:center; margin:.2rem 0 .55rem 0; }
-.top-thumbnail { max-width:min(100%, 420px); max-height:150px; width:auto; height:auto; object-fit:contain; border-radius:8px; display:block; }
+.top-thumbnail { width:100%; max-width:760px; max-height:220px; height:auto; object-fit:contain; border-radius:8px; display:block; }
 .app-title { display:flex; align-items:center; gap:14px; margin:.6rem 0 .35rem 0; }
 .app-title h1 { margin:0; padding:0; font-size:2.75rem; line-height:1.1; font-weight:800; }
 .app-logo { width:3.5em; height:3.5em; object-fit:contain; flex:0 0 auto; }
@@ -71,16 +71,27 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .score-badge { display:inline-flex; align-items:center; justify-content:center; width:3.1rem; height:3.1rem; margin-left:auto; border-radius:50%; color:#000; font-size:1.35rem; font-weight:900; line-height:1; flex:0 0 auto; }
 .color-chip { display:inline-flex; align-items:center; justify-content:center; width:1.05rem; height:1.05rem; border-radius:50%; border:1px solid rgba(255,255,255,.55); margin-right:.35rem; vertical-align:-.18rem; }
 .color-chip.used { opacity:.28; filter:grayscale(.75); }
+.current-pick-box { width:100%; display:flex; align-items:center; justify-content:center; gap:.45rem; border:3px solid currentColor; border-radius:8px; padding:12px 14px; margin:.9rem 0; color:#fff; font-size:clamp(1rem, 3.4vw, 1.7rem); font-weight:1000; white-space:nowrap; overflow:hidden; text-align:center; box-shadow:0 0 18px currentColor; }
+.current-pick-label { color:#fff; }
+.current-pick-coach { color:currentColor; background:#000; border-radius:6px; padding:2px 8px; text-shadow:0 0 8px currentColor; }
+.draft-page-nav { display:grid; grid-template-columns:minmax(54px, 1fr) minmax(120px, 2fr) minmax(54px, 1fr); align-items:stretch; gap:0; margin:.65rem 0 1rem; border:2px solid #39ff14; border-radius:8px; overflow:hidden; background:rgba(57,255,20,.08); }
+.draft-page-center { display:flex; align-items:center; justify-content:center; min-height:48px; color:#fff; border-left:1px solid rgba(57,255,20,.55); border-right:1px solid rgba(57,255,20,.55); font-weight:950; text-align:center; padding:0 8px; }
+.draft-page-side div[data-testid="stButton"] > button { min-height:48px!important; border-radius:0!important; border:0!important; background:rgba(57,255,20,.12)!important; color:#39ff14!important; font-size:1.2rem!important; box-shadow:none!important; }
+.draft-page-side div[data-testid="stButton"] > button:disabled { background:#111!important; color:#555!important; }
+.golfer-pick-wrap div[data-testid="stButton"] > button { background:rgba(57,255,20,.08)!important; border:2px solid rgba(57,255,20,.75)!important; color:#fff!important; box-shadow:0 0 8px rgba(57,255,20,.22)!important; }
+.golfer-pick-wrap div[data-testid="stButton"] > button:hover { background:rgba(57,255,20,.16)!important; border-color:#39ff14!important; }
 .draft-table-wrap { overflow-x:auto; width:100%; }
 @media (max-width:700px) {
     div[data-testid="column"] { width:100%!important; flex:1 1 100%!important; }
     div[data-testid="stButton"] > button { min-height:54px!important; font-size:.98rem!important; }
     .refresh-button-wrap div[data-testid="stButton"] > button { min-height:58px!important; font-size:1.05rem!important; }
     .top-thumbnail-wrap { margin:.1rem 0 .35rem 0; }
-    .top-thumbnail { max-width:100%; max-height:18vh; }
+    .top-thumbnail { width:100%; max-width:100%; max-height:24vh; }
     .app-title h1 { font-size:2rem; }
     .tournament-meta { font-size:1.02rem; }
     .team-face, .team-face-placeholder { width:4rem; height:4rem; }
+    .current-pick-box { padding:10px 8px; gap:.25rem; }
+    .draft-page-center { font-size:.92rem; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -1494,6 +1505,7 @@ def undo_last_pick():
 
 def set_draft_enabled(enabled):
     def mutator(state):
+        state = normalize_state(state)
         state["draft_enabled"] = enabled
         if not enabled:
             state["draft_active"] = False
@@ -1518,6 +1530,14 @@ def stop_draft():
         state["draft_active"] = False
         return True
     return mutate_shared_state(mutator, "Stop draft")
+
+def finish_draft(reason="Complete draft"):
+    def mutator(state):
+        state = normalize_state(state)
+        state["draft_active"] = False
+        state["draft_enabled"] = False
+        return True
+    return mutate_shared_state(mutator, reason)
 
 def save_draft_order(new_order):
     def mutator(state):
@@ -1632,6 +1652,17 @@ def get_team_total(players):
     total = sum(score_value for score_value, _, _, _ in top_three)
     return format_golf_score(total)
 
+def sorted_coach_ids_by_total(coach_ids, team_render_data):
+    indexed = {coach_id: index for index, coach_id in enumerate(coach_ids)}
+
+    def sort_key(coach_id):
+        total_value = parse_golf_score(team_render_data.get(coach_id, {}).get("top_three_total"))
+        if total_value is None:
+            return (1, 0, indexed.get(coach_id, 999))
+        return (0, total_value, indexed.get(coach_id, 999))
+
+    return sorted(coach_ids, key=sort_key)
+
 def parse_american_odds(value):
     try:
         if value is None:
@@ -1705,7 +1736,7 @@ picks = derive_picks_from_state(state)
 picked_golfers = get_picked_golfers(state)
 current_pick = get_current_pick(state)
 
-st_autorefresh(interval=5000, limit=None, key="shared_state_refresh")
+st_autorefresh(interval=60000 if state.get("draft_active") else 5000, limit=None, key="shared_state_refresh")
 auto_refresh_scores_if_needed(state)
 
 selected_tournament_title = html.escape(str(SELECTED_TOURNAMENT.get("title") or "PGA Tournament"))
@@ -1749,7 +1780,10 @@ for coach_id, info in teams_data.items():
         "top_three_total": top_three_total,
     }
 
-for coach_id, data in team_render_data.items():
+ordered_coach_ids = sorted_coach_ids_by_total(list(teams_data.keys()), team_render_data)
+
+for coach_id in ordered_coach_ids:
+    data = team_render_data[coach_id]
     team_name = data["team_name"]
     color = data["color"]
     players = data["players"]
@@ -1790,9 +1824,10 @@ render_refresh_scores_button("refresh_scores_top", state)
 
 st.subheader("Team Rosters")
 
-for row_start in range(0, len(teams_data), 3):
+for row_start in range(0, len(ordered_coach_ids), 3):
     team_cols = st.columns(3)
-    for idx, (coach_id, info) in enumerate(list(teams_data.items())[row_start:row_start + 3]):
+    for idx, coach_id in enumerate(ordered_coach_ids[row_start:row_start + 3]):
+        info = teams_data[coach_id]
         with team_cols[idx]:
             data = team_render_data[coach_id]
             team_name = data["team_name"]
@@ -1872,7 +1907,18 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
             st.success(f"🎉 Draft Complete! All {MAX_PICKS} picks are in.")
         elif state["draft_active"]:
             current_coach = get_coach_for_pick(current_pick, draft_order)
-            st.markdown(f"## 🔥 CURRENT PICK: **{current_coach}** — Pick #{current_pick}")
+            current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
+            safe_current_coach = html.escape(current_coach)
+            safe_current_color = html.escape(current_color)
+            st.markdown(
+                f"<div class='current-pick-box' style='color:{safe_current_color}; "
+                f"background:{safe_current_color}26;'>"
+                f"<span class='current-pick-label'>Current Pick:</span> "
+                f"<span class='current-pick-coach'>{safe_current_coach}</span> "
+                f"<span class='current-pick-label'>Pick #{current_pick}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
             render_pick_timer(state.get("last_pick_started_at", 0))
         else:
             current_coach = get_coach_for_pick(current_pick, draft_order)
@@ -1942,24 +1988,46 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
         if golfer_search:
             available = [golfer for golfer in available if golfer_search in golfer.lower()]
         total_available = len(available)
+
+        if total_available == 0 and not golfer_search and state["draft_active"] and current_pick <= MAX_PICKS:
+            result, _ = finish_draft("Complete draft - golfer pool exhausted")
+            if result:
+                st.success("Draft complete. All available golfers have been drafted and rosters are saved.")
+                time.sleep(0.5)
+                st.rerun()
+
         total_pages = max(1, (total_available + AVAILABLE_GOLFERS_PAGE_SIZE - 1) // AVAILABLE_GOLFERS_PAGE_SIZE)
-        page_col, info_col = st.columns([1, 2])
-        with page_col:
-            current_page = st.number_input(
-                "Page",
-                min_value=1,
-                max_value=total_pages,
-                value=min(st.session_state.get("available_golfers_page", 1), total_pages),
-                step=1,
-                key="available_golfers_page",
+        current_page = min(max(int(st.session_state.get("available_golfers_page", 1) or 1), 1), total_pages)
+        st.session_state.available_golfers_page = current_page
+
+        if total_available:
+            start_display = (current_page - 1) * AVAILABLE_GOLFERS_PAGE_SIZE + 1
+            end_display = min(current_page * AVAILABLE_GOLFERS_PAGE_SIZE, total_available)
+            range_text = f"Showing {start_display}-{end_display} of {total_available}"
+        else:
+            start_display = 0
+            end_display = 0
+            range_text = "No available golfers"
+
+        nav_left, nav_center, nav_right = st.columns([1, 2.4, 1])
+        with nav_left:
+            st.markdown("<div class='draft-page-side'>", unsafe_allow_html=True)
+            if st.button("←", disabled=current_page <= 1, use_container_width=True, key="available_prev_page"):
+                st.session_state.available_golfers_page = max(1, current_page - 1)
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+        with nav_center:
+            st.markdown(
+                f"<div class='draft-page-center'>Page {current_page} of {total_pages} • {html.escape(range_text)}</div>",
+                unsafe_allow_html=True,
             )
-        with info_col:
-            if total_available:
-                start_display = (current_page - 1) * AVAILABLE_GOLFERS_PAGE_SIZE + 1
-                end_display = min(current_page * AVAILABLE_GOLFERS_PAGE_SIZE, total_available)
-                st.caption(f"Showing {start_display}-{end_display} of {total_available} available golfers")
-            else:
-                st.caption("No available golfers match the current search.")
+        with nav_right:
+            st.markdown("<div class='draft-page-side'>", unsafe_allow_html=True)
+            if st.button("→", disabled=current_page >= total_pages, use_container_width=True, key="available_next_page"):
+                st.session_state.available_golfers_page = min(total_pages, current_page + 1)
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
         page_start = (current_page - 1) * AVAILABLE_GOLFERS_PAGE_SIZE
         page_end = page_start + AVAILABLE_GOLFERS_PAGE_SIZE
         available_page = available[page_start:page_end]
@@ -1973,7 +2041,15 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
                     odds_label = golfer_odds_label(golfer)
                     disabled = not state["draft_active"] or current_pick > MAX_PICKS
 
-                    if st.button(f"✅ {display_player_name(golfer)} {odds_label}", key=f"pick_{golfer}", disabled=disabled, use_container_width=True):
+                    st.markdown("<div class='golfer-pick-wrap'>", unsafe_allow_html=True)
+                    pick_clicked = st.button(
+                        f"{display_player_name(golfer)} {odds_label}",
+                        key=f"pick_{golfer}",
+                        disabled=disabled,
+                        use_container_width=True,
+                    )
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    if pick_clicked:
                         with st.spinner(f"Saving {display_player_name(golfer)}..."):
                             result, _ = make_draft_pick(golfer)
                             if result:
@@ -2045,13 +2121,20 @@ with st.expander("🔧 Admin Section", expanded=False):
     st.subheader("Draft Control")
     st.toggle("Show Performance Debug", value=st.session_state.get("perf_debug_enabled", False), key="perf_debug_enabled")
 
-    enable = st.toggle("Enable Draft", value=state["draft_enabled"], key="enable_toggle")
-
-    if enable != state["draft_enabled"]:
-        result, _ = set_draft_enabled(enable)
-        st.session_state.confirm_clear_rosters = False
-        if result:
-            st.rerun()
+    st.caption(f"Draft status: {'Enabled' if state['draft_enabled'] else 'Disabled'}")
+    enable_col, disable_col = st.columns(2)
+    with enable_col:
+        if st.button("Enable Draft", disabled=state["draft_enabled"], use_container_width=True):
+            result, _ = set_draft_enabled(True)
+            st.session_state.confirm_clear_rosters = False
+            if result:
+                st.rerun()
+    with disable_col:
+        if st.button("Disable Draft", disabled=not state["draft_enabled"], use_container_width=True):
+            result, _ = set_draft_enabled(False)
+            st.session_state.confirm_clear_rosters = False
+            if result:
+                st.rerun()
 
     if state["draft_enabled"]:
         if not st.session_state.confirm_clear_rosters:
