@@ -43,7 +43,7 @@ The preview image and the top app title image both come from the root-level `tit
 - `app.py`: Streamlit app.
 - `draft_state.json`: local state fallback and initial nine-coach state.
 - `requirements.txt`: Python dependencies.
-- `index.html`: GitHub Pages share preview for iMessage.
+- `docs/index.html`: GitHub Pages share preview for iMessage.
 - `titlethumb.png`: shared title image and iMessage preview image.
 - `pga-tour.png`: visual asset.
 - Coach photos are expected as `CoachName.jpeg`, for example `McClure.jpeg`.
