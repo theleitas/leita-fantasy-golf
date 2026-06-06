@@ -66,8 +66,8 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .team-heading { display:flex; align-items:center; flex-wrap:wrap; gap:14px; min-width:0; }
 .team-heading span { min-width:0; overflow-wrap:anywhere; }
 .team-name { font-size:1.2em; font-weight:950; }
-.team-face { width:7rem; height:7rem; border-radius:50%; object-fit:cover; border:4px solid currentColor; flex:0 0 auto; box-shadow:0 0 18px currentColor; }
-.team-face-placeholder { width:7rem; height:7rem; border-radius:50%; border:4px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:900; line-height:1.05; text-align:center; overflow:hidden; flex:0 0 auto; padding:8px; background:#050505; box-shadow:0 0 18px currentColor; }
+.team-face { width:5.6rem; height:5.6rem; border-radius:50%; object-fit:cover; border:4px solid currentColor; flex:0 0 auto; box-shadow:0 0 18px currentColor; }
+.team-face-placeholder { width:5.6rem; height:5.6rem; border-radius:50%; border:4px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:900; line-height:1.05; text-align:center; overflow:hidden; flex:0 0 auto; padding:7px; background:#050505; box-shadow:0 0 18px currentColor; }
 .score-badge { display:inline-flex; align-items:center; justify-content:center; width:3.1rem; height:3.1rem; margin-left:auto; border-radius:50%; color:#000; font-size:1.35rem; font-weight:900; line-height:1; flex:0 0 auto; }
 .color-chip { display:inline-flex; align-items:center; justify-content:center; width:1.05rem; height:1.05rem; border-radius:50%; border:1px solid rgba(255,255,255,.55); margin-right:.35rem; vertical-align:-.18rem; }
 .color-chip.used { opacity:.28; filter:grayscale(.75); }
@@ -80,7 +80,7 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
     .top-thumbnail { max-width:100%; max-height:18vh; }
     .app-title h1 { font-size:2rem; }
     .tournament-meta { font-size:1.02rem; }
-    .team-face, .team-face-placeholder { width:5rem; height:5rem; }
+    .team-face, .team-face-placeholder { width:4rem; height:4rem; }
 }
 </style>
 """, unsafe_allow_html=True)
