@@ -14,7 +14,7 @@ RENDER_T0 = time.perf_counter()
 
 st.set_page_config(
     page_title="DeskCheck Golf Challenge",
-    page_icon="thumb.png",
+    page_icon="titlethumb.png",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -145,7 +145,7 @@ TEAM_COLOR_OPTIONS = [
 TEAM_COLOR_BY_HEX = {hex_value: label for label, hex_value in TEAM_COLOR_OPTIONS}
 
 APP_LOGO = "pga-tour.png"
-THUMBNAIL_PATH = "thumb.png"
+TITLE_THUMBNAIL_PATH = "titlethumb.png"
 
 STATIC_ODDS = {
     "Scottie Scheffler": "+450", "Rory McIlroy": "+800", "Xander Schauffele": "+1400",
@@ -243,7 +243,6 @@ def default_state():
     return {
         "app_title": DEFAULT_APP_TITLE,
         "payout_rules": DEFAULT_PAYOUT_RULES,
-        "thumbnail": {},
         "draft_enabled": False,
         "draft_active": False,
         "draft_order": list(DEFAULT_COACHES),
@@ -266,8 +265,7 @@ def normalize_state(state):
         state["app_title"] = base["app_title"]
     if not str(state.get("payout_rules") or "").strip():
         state["payout_rules"] = base["payout_rules"]
-    if not isinstance(state.get("thumbnail"), dict):
-        state["thumbnail"] = {}
+    state.pop("thumbnail", None)
     state.setdefault("draft_enabled", base["draft_enabled"])
     state.setdefault("draft_active", base["draft_active"])
     state.setdefault("draft_order", base["draft_order"])
@@ -533,15 +531,11 @@ def image_html(path, class_name):
 def app_logo_html():
     return image_html(APP_LOGO, "app-logo")
 
-def thumbnail_data_uri_for_display(state):
-    saved_thumbnail = state.get("thumbnail") if isinstance(state.get("thumbnail"), dict) else {}
-    saved_data_uri = str(saved_thumbnail.get("data_uri") or "").strip()
-    if saved_data_uri:
-        return saved_data_uri
-    return image_to_data_uri(THUMBNAIL_PATH)
+def thumbnail_data_uri_for_display():
+    return image_to_data_uri(TITLE_THUMBNAIL_PATH)
 
-def top_thumbnail_html(state):
-    data_uri = thumbnail_data_uri_for_display(state)
+def top_thumbnail_html():
+    data_uri = thumbnail_data_uri_for_display()
     if not data_uri:
         return ""
     safe_data_uri = html.escape(data_uri, quote=True)
@@ -1545,31 +1539,6 @@ def save_app_settings(app_title, payout_rules):
         return True
     return mutate_shared_state(mutator, "Update app settings")
 
-def save_uploaded_thumbnail(uploaded_file):
-    if uploaded_file is None:
-        return False, "No thumbnail selected."
-    data = uploaded_file.getvalue()
-    if not data:
-        return False, "Uploaded thumbnail was empty."
-    mime_type = uploaded_file.type or "image/png"
-    encoded = base64.b64encode(data).decode("utf-8")
-    try:
-        with open(THUMBNAIL_PATH, "wb") as thumbnail_file:
-            thumbnail_file.write(data)
-    except Exception:
-        pass
-
-    def mutator(state):
-        state = normalize_state(state)
-        state["thumbnail"] = {
-            "filename": uploaded_file.name,
-            "mime_type": mime_type,
-            "data_uri": f"data:{mime_type};base64,{encoded}",
-        }
-        return True
-    result, _ = mutate_shared_state(mutator, "Update app thumbnail")
-    return bool(result), "Thumbnail saved." if result else "Thumbnail was not saved."
-
 def save_team_settings(new_teams):
     def mutator(state):
         state = normalize_state(state)
@@ -1748,7 +1717,7 @@ selected_tournament_location = html.escape(str(SELECTED_TOURNAMENT.get("location
 app_title = html.escape(str(state.get("app_title") or DEFAULT_APP_TITLE))
 payout_rules = html.escape(str(state.get("payout_rules") or DEFAULT_PAYOUT_RULES))
 
-st.markdown(top_thumbnail_html(state), unsafe_allow_html=True)
+st.markdown(top_thumbnail_html(), unsafe_allow_html=True)
 st.markdown(
     f"<div class='app-title'>{app_logo_html()}<h1>{app_title}</h1></div>",
     unsafe_allow_html=True,
@@ -2022,19 +1991,6 @@ with st.expander("🔧 Admin Section", expanded=False):
                 st.rerun()
             else:
                 st.error("App settings were not saved.")
-
-    st.subheader("iMessage Thumbnail")
-    uploaded_thumbnail = st.file_uploader("Thumbnail Image", type=["png", "jpg", "jpeg"], key="thumbnail_upload")
-    thumbnail_data_uri = (state.get("thumbnail") or {}).get("data_uri")
-    if thumbnail_data_uri:
-        st.image(thumbnail_data_uri, width=160)
-    if st.button("💾 Save Thumbnail", disabled=uploaded_thumbnail is None, use_container_width=True):
-        ok, message = save_uploaded_thumbnail(uploaded_thumbnail)
-        if ok:
-            st.success(message)
-            st.rerun()
-        else:
-            st.error(message)
 
     st.subheader("Tournament Selection")
 

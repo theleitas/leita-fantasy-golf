@@ -36,11 +36,14 @@ https://theleitas.github.io/leita-fantasy-golf/
 
 That page supplies the preview thumbnail and then redirects visitors to the Streamlit app.
 
+The preview image and the top app title image both come from the root-level `titlethumb.png` file.
+
 ## Files
 
 - `app.py`: Streamlit app.
 - `draft_state.json`: local state fallback and initial nine-coach state.
 - `requirements.txt`: Python dependencies.
-- `docs/index.html`, `docs/og-image.png`: GitHub Pages share preview for iMessage.
-- `pga-tour.png`, `thumb.png`: visual assets.
+- `index.html`: GitHub Pages share preview for iMessage.
+- `titlethumb.png`: shared title image and iMessage preview image.
+- `pga-tour.png`: visual asset.
 - Coach photos are expected as `CoachName.jpeg`, for example `McClure.jpeg`.
