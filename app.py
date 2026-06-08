@@ -85,8 +85,8 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .draft-page-center { display:flex; align-items:center; justify-content:center; min-height:48px; color:#fff; border-left:1px solid rgba(57,255,20,.55); border-right:1px solid rgba(57,255,20,.55); font-weight:950; text-align:center; padding:0 8px; }
 .draft-page-side div[data-testid="stButton"] > button { min-height:48px!important; border-radius:0!important; border:0!important; background:rgba(57,255,20,.12)!important; color:#39ff14!important; font-size:1.2rem!important; box-shadow:none!important; }
 .draft-page-side div[data-testid="stButton"] > button:disabled { background:#111!important; color:#555!important; }
-.golfer-pick-wrap div[data-testid="stButton"] > button { background:rgba(57,255,20,.08)!important; border:2px solid rgba(57,255,20,.75)!important; color:#fff!important; box-shadow:0 0 8px rgba(57,255,20,.22)!important; }
-.golfer-pick-wrap div[data-testid="stButton"] > button:hover { background:rgba(57,255,20,.16)!important; border-color:#39ff14!important; }
+.golfer-pick-wrap div[data-testid="stButton"] > button { background:var(--pick-bg, rgba(57,255,20,.08))!important; border:2px solid var(--pick-color, #39ff14)!important; color:#fff!important; box-shadow:0 0 10px var(--pick-shadow, rgba(57,255,20,.28))!important; }
+.golfer-pick-wrap div[data-testid="stButton"] > button:hover { background:var(--pick-hover-bg, rgba(57,255,20,.16))!important; border-color:var(--pick-color, #39ff14)!important; box-shadow:0 0 16px var(--pick-shadow, rgba(57,255,20,.36))!important; }
 .draft-table-wrap { overflow-x:auto; width:100%; }
 @media (max-width:700px) {
     div[data-testid="column"] { width:100%!important; flex:1 1 100%!important; }
@@ -2153,6 +2153,18 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
                 unsafe_allow_html=True,
             )
 
+        draft_button_color = "#39FF14"
+        if state["draft_active"] and current_pick <= MAX_PICKS:
+            draft_button_coach = get_coach_for_pick(current_pick, draft_order)
+            draft_button_color = teams_data.get(draft_button_coach, {}).get("color", "#39FF14")
+        safe_draft_button_color = html.escape(str(draft_button_color or "#39FF14"))
+        draft_button_style = (
+            f"--pick-color:{safe_draft_button_color}; "
+            f"--pick-bg:{safe_draft_button_color}14; "
+            f"--pick-hover-bg:{safe_draft_button_color}28; "
+            f"--pick-shadow:{safe_draft_button_color}66;"
+        )
+
         for row_start in range(0, len(available_page), 3):
             row_cols = st.columns(3)
             row_players = available_page[row_start:row_start + 3]
@@ -2162,7 +2174,7 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
                     odds_label = golfer_odds_label(golfer)
                     disabled = not state["draft_active"] or current_pick > MAX_PICKS
 
-                    st.markdown("<div class='golfer-pick-wrap'>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='golfer-pick-wrap' style='{draft_button_style}'>", unsafe_allow_html=True)
                     pick_clicked = st.button(
                         f"{display_player_name(golfer)} {odds_label}",
                         key=f"pick_{golfer}",
