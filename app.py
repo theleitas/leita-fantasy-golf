@@ -71,9 +71,16 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .score-badge { display:inline-flex; align-items:center; justify-content:center; width:3.1rem; height:3.1rem; margin-left:auto; border-radius:50%; color:#000; font-size:1.35rem; font-weight:900; line-height:1; flex:0 0 auto; }
 .color-chip { display:inline-flex; align-items:center; justify-content:center; width:1.05rem; height:1.05rem; border-radius:50%; border:1px solid rgba(255,255,255,.55); margin-right:.35rem; vertical-align:-.18rem; }
 .color-chip.used { opacity:.28; filter:grayscale(.75); }
-.current-pick-box { width:100%; display:flex; align-items:center; justify-content:center; gap:.45rem; border:3px solid currentColor; border-radius:8px; padding:12px 14px; margin:.9rem 0; color:#fff; font-size:clamp(1rem, 3.4vw, 1.7rem); font-weight:1000; white-space:nowrap; overflow:hidden; text-align:center; box-shadow:0 0 18px currentColor; }
+.pick-status-stack { margin:.9rem 0 .8rem 0; }
+.current-pick-box { width:100%; display:flex; align-items:center; justify-content:center; gap:.45rem; border:3px solid currentColor; border-radius:8px; padding:12px 14px; margin:0; color:#fff; font-size:clamp(1rem, 3.4vw, 1.7rem); font-weight:1000; white-space:nowrap; overflow:hidden; text-align:center; box-shadow:0 0 18px currentColor; }
 .current-pick-label { color:#fff; }
 .current-pick-coach { color:currentColor; background:#000; border-radius:6px; padding:2px 8px; text-shadow:0 0 8px currentColor; }
+.on-deck-box { width:100%; display:flex; align-items:center; justify-content:center; gap:.35rem; border:2px solid currentColor; border-radius:8px; padding:8px 12px; margin:6px 0 0 0; color:#fff; font-size:clamp(.94rem, 2.8vw, 1.22rem); font-weight:900; white-space:nowrap; overflow:hidden; text-align:center; background:rgba(255,255,255,.04); box-shadow:0 0 10px currentColor; }
+.on-deck-coach { color:currentColor; background:#000; border-radius:6px; padding:1px 7px; text-shadow:0 0 7px currentColor; }
+.make-pick-prompt { width:100%; border:2px solid currentColor; border-radius:8px; padding:10px 12px; margin:.8rem 0 .7rem 0; color:currentColor; background:rgba(255,255,255,.04); font-size:clamp(1rem, 3vw, 1.35rem); font-weight:1000; text-align:center; box-shadow:0 0 12px currentColor; }
+.undo-pick-wrap { margin:.65rem 0 1rem 0; }
+.undo-pick-wrap div[data-testid="stButton"] > button { background:#151515!important; color:#fff!important; border:2px solid #ffeb3b!important; box-shadow:0 0 10px rgba(255,235,59,.32)!important; }
+.undo-pick-wrap div[data-testid="stButton"] > button:hover { background:#242000!important; border-color:#fff36a!important; }
 .draft-page-nav { display:grid; grid-template-columns:minmax(54px, 1fr) minmax(120px, 2fr) minmax(54px, 1fr); align-items:stretch; gap:0; margin:.65rem 0 1rem; border:2px solid #39ff14; border-radius:8px; overflow:hidden; background:rgba(57,255,20,.08); }
 .draft-page-center { display:flex; align-items:center; justify-content:center; min-height:48px; color:#fff; border-left:1px solid rgba(57,255,20,.55); border-right:1px solid rgba(57,255,20,.55); font-weight:950; text-align:center; padding:0 8px; }
 .draft-page-side div[data-testid="stButton"] > button { min-height:48px!important; border-radius:0!important; border:0!important; background:rgba(57,255,20,.12)!important; color:#39ff14!important; font-size:1.2rem!important; box-shadow:none!important; }
@@ -1968,53 +1975,64 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
     if not state["draft_enabled"]:
         st.error("🚫 Draft is currently DISABLED in Admin section")
     else:
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            if st.button("▶️ Start Draft", type="primary", disabled=state["draft_active"] or current_pick > MAX_PICKS, use_container_width=True):
-                result, _ = start_draft()
-                if result:
-                    st.rerun()
-
-        with col2:
-            if st.button("⏹️ Stop Draft", disabled=not state["draft_active"], use_container_width=True):
-                result, _ = stop_draft()
-                if result:
-                    st.rerun()
-
-        with col3:
-            if st.button("↩️ Undo Last Pick", disabled=not picks, use_container_width=True):
-                result, _ = undo_last_pick()
-                if result:
-                    undone_pick_num, undone_coach, undone_golfer = result
-                    st.success(f"Undid Pick #{undone_pick_num}: {display_player_name(undone_golfer)}. {undone_coach} is back on the clock.")
-                    time.sleep(0.5)
-                    st.rerun()
-
         if current_pick > MAX_PICKS:
             st.success(f"🎉 Draft Complete! All {MAX_PICKS} picks are in.")
         elif state["draft_active"]:
             current_coach = get_coach_for_pick(current_pick, draft_order)
             current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
+            on_deck_pick = current_pick + 1
+            on_deck_coach = get_coach_for_pick(on_deck_pick, draft_order) if on_deck_pick <= MAX_PICKS else ""
+            on_deck_color = teams_data.get(on_deck_coach, {}).get("color", "#39FF14")
             safe_current_coach = html.escape(current_coach)
             safe_current_color = html.escape(current_color)
+            safe_on_deck_coach = html.escape(on_deck_coach)
+            safe_on_deck_color = html.escape(on_deck_color)
             st.markdown(
+                "<div class='pick-status-stack'>"
                 f"<div class='current-pick-box' style='color:{safe_current_color}; "
                 f"background:{safe_current_color}26;'>"
                 f"<span class='current-pick-label'>Current Pick:</span> "
                 f"<span class='current-pick-coach'>{safe_current_coach}</span> "
                 f"<span class='current-pick-label'>Pick #{current_pick}</span>"
-                f"</div>",
+                f"</div>"
+                + (
+                    f"<div class='on-deck-box' style='color:{safe_on_deck_color}; background:{safe_on_deck_color}18;'>"
+                    f"<span>On Deck:</span> "
+                    f"<span class='on-deck-coach'>{safe_on_deck_coach}</span> "
+                    f"<span>Pick #{on_deck_pick}</span>"
+                    f"</div>"
+                    if on_deck_coach else ""
+                )
+                + "</div>",
                 unsafe_allow_html=True,
             )
             render_pick_timer(state.get("last_pick_started_at", 0))
         else:
             current_coach = get_coach_for_pick(current_pick, draft_order)
+            current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
+            safe_current_coach = html.escape(current_coach)
+            safe_current_color = html.escape(current_color)
             st.markdown(
-                f"<div class='draft-stopped-note'>Draft stopped. {html.escape(current_coach)} is next at Pick #{current_pick}. "
-                f"Start the draft to resume picking.</div>",
+                "<div class='pick-status-stack'>"
+                f"<div class='current-pick-box' style='color:{safe_current_color}; background:{safe_current_color}18;'>"
+                f"<span class='current-pick-label'>Next Pick:</span> "
+                f"<span class='current-pick-coach'>{safe_current_coach}</span> "
+                f"<span class='current-pick-label'>Pick #{current_pick}</span>"
+                f"</div>"
+                f"<div class='draft-stopped-note'>Draft stopped. Start the draft in Admin to resume picking.</div>"
+                "</div>",
                 unsafe_allow_html=True,
             )
+
+        st.markdown("<div class='undo-pick-wrap'>", unsafe_allow_html=True)
+        if st.button("↩️ Undo Last Pick", disabled=not picks, use_container_width=True, key="public_undo_last_pick"):
+            result, _ = undo_last_pick()
+            if result:
+                undone_pick_num, undone_coach, undone_golfer = result
+                st.success(f"Undid Pick #{undone_pick_num}: {display_player_name(undone_golfer)}. {undone_coach} is back on the clock.")
+                time.sleep(0.5)
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
         st.subheader("Draft Dashboard")
 
@@ -2123,6 +2141,18 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
         page_end = page_start + AVAILABLE_GOLFERS_PAGE_SIZE
         available_page = available[page_start:page_end]
 
+        if state["draft_active"] and current_pick <= MAX_PICKS:
+            current_coach = get_coach_for_pick(current_pick, draft_order)
+            current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
+            current_team_name = teams_data.get(current_coach, {}).get("team_name", current_coach)
+            st.markdown(
+                f"<div class='make-pick-prompt' style='color:{html.escape(current_color)}; "
+                f"background:{html.escape(current_color)}14;'>"
+                f"{html.escape(current_team_name)}, make your pick below."
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
         for row_start in range(0, len(available_page), 3):
             row_cols = st.columns(3)
             row_players = available_page[row_start:row_start + 3]
@@ -2224,6 +2254,18 @@ with st.expander("🔧 Admin Section", expanded=False):
         if st.button("Disable Draft", disabled=not state["draft_enabled"], use_container_width=True):
             result, _ = set_draft_enabled(False)
             st.session_state.confirm_clear_rosters = False
+            if result:
+                st.rerun()
+
+    start_col, stop_col = st.columns(2)
+    with start_col:
+        if st.button("▶️ Start Draft", type="primary", disabled=state["draft_active"] or current_pick > MAX_PICKS, use_container_width=True):
+            result, _ = start_draft()
+            if result:
+                st.rerun()
+    with stop_col:
+        if st.button("⏹️ Stop Draft", disabled=not state["draft_active"], use_container_width=True):
+            result, _ = stop_draft()
             if result:
                 st.rerun()
 
