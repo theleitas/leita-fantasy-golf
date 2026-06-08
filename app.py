@@ -120,6 +120,9 @@ ESPN_LEADERBOARD_BASE_URL = "https://site.web.api.espn.com/apis/site/v2/sports/g
 ESPN_PGA_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard"
 AUTO_SCORE_REFRESH_SECONDS = 5 * 60
 AVAILABLE_GOLFERS_PAGE_SIZE = 24
+PGATOUR_FIELD_URLS_BY_ESPN_EVENT_ID = {
+    "401811951": "https://www.pgatour.com/tournaments/2026/rbc-canadian-open/R2026032/field",
+}
 DEFAULT_PAYOUT_RULES = (
     "Each coach drafts 10 golfers and antes $50. Coach with lowest 3 golfers at end of tournaments "
     "wins with payouts of $X for 1st, $Y for 2nd, and $Z for 3rd."
@@ -1011,6 +1014,77 @@ def fetch_tournament_field(event_id=""):
     players.sort(key=lambda player: (last_name_key(player), player.lower()))
     return players
 
+def extract_pgatour_field_players_from_payload(payload):
+    candidate_lists = []
+
+    def walk(value, path=""):
+        if isinstance(value, list) and len(value) > 20 and all(isinstance(item, dict) for item in value[:5]):
+            keys = set()
+            for item in value[:10]:
+                keys.update(item.keys())
+            if {"firstName", "lastName"}.issubset(keys) and path.endswith("/players"):
+                candidate_lists.append(value)
+        elif isinstance(value, dict):
+            for key, child in value.items():
+                walk(child, f"{path}/{key}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                walk(child, f"{path}[{index}]")
+
+    walk(payload)
+    if not candidate_lists:
+        return []
+
+    # Prefer the alphabetic field list over ranking/leaderboard-ordered lists.
+    selected = max(candidate_lists, key=len)
+    players = []
+    seen = set()
+    for player in selected:
+        if player.get("alternate"):
+            continue
+        status_text = str(player.get("status") or "").strip().lower()
+        if player.get("withdrawn") or "withdraw" in status_text:
+            continue
+        first = str(player.get("firstName") or "").strip()
+        last = str(player.get("lastName") or "").strip()
+        name = " ".join(part for part in [first, last] if part).strip()
+        if not name:
+            display_name = str(player.get("displayName") or player.get("playerName") or "").strip()
+            if "," in display_name:
+                last_part, first_part = [part.strip() for part in display_name.split(",", 1)]
+                name = " ".join(part for part in [first_part, last_part] if part)
+            else:
+                name = display_name
+        if not name:
+            continue
+        canonical_name = PLAYER_NAME_LOOKUP.get(normalize_player_match_name(name)) or name
+        key = normalize_player_match_name(canonical_name)
+        if key in seen:
+            continue
+        seen.add(key)
+        players.append(canonical_name)
+
+    players.sort(key=lambda player: (last_name_key(player), player.lower()))
+    return players
+
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_pgatour_field(field_url):
+    resp = requests.get(
+        field_url,
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    match = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+        resp.text,
+        flags=re.DOTALL,
+    )
+    if not match:
+        return []
+    payload = json.loads(html.unescape(match.group(1)))
+    return extract_pgatour_field_players_from_payload(payload)
+
 def get_draft_player_pool(tournament):
     event_id = str((tournament or {}).get("event_id") or "").strip()
     if event_id:
@@ -1020,7 +1094,21 @@ def get_draft_player_pool(tournament):
                 return field_players, f"Draft field loaded from ESPN for {tournament.get('title') or 'the selected tournament'}."
         except Exception:
             pass
-    return list(PGA_PLAYERS), "Tournament field is not available from ESPN yet, so the draft list is using the saved PGA player pool."
+
+        pgatour_url = PGATOUR_FIELD_URLS_BY_ESPN_EVENT_ID.get(event_id)
+        if pgatour_url:
+            try:
+                field_players = fetch_pgatour_field(pgatour_url)
+                if field_players:
+                    return field_players, f"Draft field loaded from PGA TOUR for {tournament.get('title') or 'the selected tournament'}."
+            except Exception:
+                pass
+
+        return [], (
+            "Verified tournament field is not available yet for this selected event. "
+            "The draft list is intentionally hidden so the wrong golfers are not drafted."
+        )
+    return list(PGA_PLAYERS), "No tournament is selected, so the draft list is using the saved PGA player pool."
 
 @st.cache_data(ttl=120, show_spinner=False)
 def fetch_competitor_summary(event_id, competitor_id, league="pga"):
@@ -1981,7 +2069,10 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
         st.caption("Sorted by odds, then last name. Use search and pages for faster loading on mobile.")
 
         draft_player_pool, field_note = get_draft_player_pool(SELECTED_TOURNAMENT)
-        st.caption(field_note)
+        if draft_player_pool:
+            st.caption(field_note)
+        else:
+            st.warning(field_note)
         sorted_players = sorted(draft_player_pool, key=odds_sort_key)
         available = [golfer for golfer in sorted_players if golfer not in picked_golfers]
         golfer_search = st.text_input("Find Golfer", value="", key="available_golfer_search").strip().lower()
@@ -1989,7 +2080,7 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
             available = [golfer for golfer in available if golfer_search in golfer.lower()]
         total_available = len(available)
 
-        if total_available == 0 and not golfer_search and state["draft_active"] and current_pick <= MAX_PICKS:
+        if draft_player_pool and total_available == 0 and not golfer_search and state["draft_active"] and current_pick <= MAX_PICKS:
             result, _ = finish_draft("Complete draft - golfer pool exhausted")
             if result:
                 st.success("Draft complete. All available golfers have been drafted and rosters are saved.")
