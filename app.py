@@ -1861,6 +1861,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+draft_controls_slot = st.container()
+
 st.subheader("Standings")
 
 team_render_data = {}
@@ -1973,241 +1975,241 @@ render_refresh_scores_button("refresh_scores_middle", state)
 st.subheader("Tournament Leaderboard")
 render_tournament_leaderboard(SELECTED_TOURNAMENT)
 
-st.markdown(
-    f"<div class='payout-rules-box'><div class='payout-rules-label'>Payout Rules</div>{payout_rules}</div>",
-    unsafe_allow_html=True,
-)
+with draft_controls_slot:
+    st.markdown(
+        f"<div class='payout-rules-box'><div class='payout-rules-label'>Payout Rules</div>{payout_rules}</div>",
+        unsafe_allow_html=True,
+    )
 
-with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
-    if not state["draft_enabled"]:
-        st.error("🚫 Draft is currently DISABLED in Admin section")
-    else:
-        if current_pick > MAX_PICKS:
-            st.success(f"🎉 Draft Complete! All {MAX_PICKS} picks are in.")
-        elif state["draft_active"]:
-            current_coach = get_coach_for_pick(current_pick, draft_order)
-            current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
-            on_deck_pick = current_pick + 1
-            on_deck_coach = get_coach_for_pick(on_deck_pick, draft_order) if on_deck_pick <= MAX_PICKS else ""
-            on_deck_color = teams_data.get(on_deck_coach, {}).get("color", "#39FF14")
-            safe_current_coach = html.escape(current_coach)
-            safe_current_color = html.escape(current_color)
-            safe_on_deck_coach = html.escape(on_deck_coach)
-            safe_on_deck_color = html.escape(on_deck_color)
-            st.markdown(
-                "<div class='pick-status-stack'>"
-                f"<div class='current-pick-box' style='color:{safe_current_color}; "
-                f"background:{safe_current_color}26;'>"
-                f"<span class='current-pick-label'>Current Pick:</span> "
-                f"<span class='current-pick-coach'>{safe_current_coach}</span> "
-                f"<span class='current-pick-label'>Pick #{current_pick}</span>"
-                f"</div>"
-                + (
-                    f"<div class='on-deck-box' style='color:{safe_on_deck_color}; background:{safe_on_deck_color}18;'>"
-                    f"<span>On Deck:</span> "
-                    f"<span class='on-deck-coach'>{safe_on_deck_coach}</span> "
-                    f"<span>Pick #{on_deck_pick}</span>"
-                    f"</div>"
-                    if on_deck_coach else ""
-                )
-                + "</div>",
-                unsafe_allow_html=True,
-            )
-            render_pick_timer(state.get("last_pick_started_at", 0))
+    with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
+        if not state["draft_enabled"]:
+            st.error("🚫 Draft is currently DISABLED in Admin section")
         else:
-            current_coach = get_coach_for_pick(current_pick, draft_order)
-            current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
-            safe_current_coach = html.escape(current_coach)
-            safe_current_color = html.escape(current_color)
-            st.markdown(
-                "<div class='pick-status-stack'>"
-                f"<div class='current-pick-box' style='color:{safe_current_color}; background:{safe_current_color}18;'>"
-                f"<span class='current-pick-label'>Next Pick:</span> "
-                f"<span class='current-pick-coach'>{safe_current_coach}</span> "
-                f"<span class='current-pick-label'>Pick #{current_pick}</span>"
-                f"</div>"
-                f"<div class='draft-stopped-note'>Draft stopped. Start the draft in Admin to resume picking.</div>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
+            if current_pick > MAX_PICKS:
+                st.success(f"🎉 Draft Complete! All {MAX_PICKS} picks are in.")
+            elif state["draft_active"]:
+                current_coach = get_coach_for_pick(current_pick, draft_order)
+                current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
+                on_deck_pick = current_pick + 1
+                on_deck_coach = get_coach_for_pick(on_deck_pick, draft_order) if on_deck_pick <= MAX_PICKS else ""
+                on_deck_color = teams_data.get(on_deck_coach, {}).get("color", "#39FF14")
+                safe_current_coach = html.escape(current_coach)
+                safe_current_color = html.escape(current_color)
+                safe_on_deck_coach = html.escape(on_deck_coach)
+                safe_on_deck_color = html.escape(on_deck_color)
+                st.markdown(
+                    "<div class='pick-status-stack'>"
+                    f"<div class='current-pick-box' style='color:{safe_current_color}; "
+                    f"background:{safe_current_color}26;'>"
+                    f"<span class='current-pick-label'>Current Pick:</span> "
+                    f"<span class='current-pick-coach'>{safe_current_coach}</span> "
+                    f"<span class='current-pick-label'>Pick #{current_pick}</span>"
+                    f"</div>"
+                    + (
+                        f"<div class='on-deck-box' style='color:{safe_on_deck_color}; background:{safe_on_deck_color}18;'>"
+                        f"<span>On Deck:</span> "
+                        f"<span class='on-deck-coach'>{safe_on_deck_coach}</span> "
+                        f"<span>Pick #{on_deck_pick}</span>"
+                        f"</div>"
+                        if on_deck_coach else ""
+                    )
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+                render_pick_timer(state.get("last_pick_started_at", 0))
+            else:
+                current_coach = get_coach_for_pick(current_pick, draft_order)
+                current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
+                safe_current_coach = html.escape(current_coach)
+                safe_current_color = html.escape(current_color)
+                st.markdown(
+                    "<div class='pick-status-stack'>"
+                    f"<div class='current-pick-box' style='color:{safe_current_color}; background:{safe_current_color}18;'>"
+                    f"<span class='current-pick-label'>Next Pick:</span> "
+                    f"<span class='current-pick-coach'>{safe_current_coach}</span> "
+                    f"<span class='current-pick-label'>Pick #{current_pick}</span>"
+                    f"</div>"
+                    f"<div class='draft-stopped-note'>Draft stopped. Start the draft in Admin to resume picking.</div>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
 
-        st.markdown("<div class='undo-pick-wrap'>", unsafe_allow_html=True)
-        if st.button("↩️ Undo Last Pick", disabled=not picks, use_container_width=True, key="public_undo_last_pick"):
-            result, _ = undo_last_pick()
-            if result:
-                undone_pick_num, undone_coach, undone_golfer = result
-                st.success(f"Undid Pick #{undone_pick_num}: {display_player_name(undone_golfer)}. {undone_coach} is back on the clock.")
-                time.sleep(0.5)
-                st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<div class='undo-pick-wrap'>", unsafe_allow_html=True)
+            if st.button("↩️ Undo Last Pick", disabled=not picks, use_container_width=True, key="public_undo_last_pick"):
+                result, _ = undo_last_pick()
+                if result:
+                    undone_pick_num, undone_coach, undone_golfer = result
+                    st.success(f"Undid Pick #{undone_pick_num}: {display_player_name(undone_golfer)}. {undone_coach} is back on the clock.")
+                    time.sleep(0.5)
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        st.subheader("Draft Dashboard")
+            st.subheader("Draft Dashboard")
 
-        grid_html = """
-        <style>
-        @keyframes flash { 0% { background-color:#ffeb3b; } 50% { background-color:#fff59d; } 100% { background-color:#ffeb3b; } }
-        .draft-table { width:100%; min-width:980px; border-collapse:collapse; font-size:.78rem; background:#000; color:#fff; }
-        .draft-table th, .draft-table td { border:1px solid #555; padding:7px; text-align:center; }
-        .draft-table th { background-color:#1f1f1f; color:#fff; }
-        .current-cell { animation:flash 1.2s infinite; font-weight:bold; }
-        .stopped-cell { background-color:#333; color:#aaa; font-weight:bold; }
-        </style>
-        <div class="draft-table-wrap"><table class="draft-table"><tr><th>Round</th>
-        """
+            grid_html = """
+            <style>
+            @keyframes flash { 0% { background-color:#ffeb3b; } 50% { background-color:#fff59d; } 100% { background-color:#ffeb3b; } }
+            .draft-table { width:100%; min-width:980px; border-collapse:collapse; font-size:.78rem; background:#000; color:#fff; }
+            .draft-table th, .draft-table td { border:1px solid #555; padding:7px; text-align:center; }
+            .draft-table th { background-color:#1f1f1f; color:#fff; }
+            .current-cell { animation:flash 1.2s infinite; font-weight:bold; }
+            .stopped-cell { background-color:#333; color:#aaa; font-weight:bold; }
+            </style>
+            <div class="draft-table-wrap"><table class="draft-table"><tr><th>Round</th>
+            """
 
-        for coach in draft_order:
-            grid_html += f"<th>{html.escape(coach)}</th>"
-        grid_html += "</tr>"
-
-        for round_num in range(10):
-            grid_html += f"<tr><td><b>Round {round_num + 1}</b></td>"
-            team_count = len(draft_order)
-            for column_num in range(team_count):
-                if round_num % 2 == 0:
-                    pick_num = round_num * team_count + column_num + 1
-                else:
-                    pick_num = round_num * team_count + (team_count - 1 - column_num) + 1
-
-                picked_golfer = next((pick[2] for pick in picks if pick[0] == pick_num), None)
-                is_current = pick_num == current_pick
-
-                if picked_golfer:
-                    cell = html.escape(display_player_name(picked_golfer))
-                    cell_style = ""
-                elif is_current and state["draft_active"]:
-                    cell = f"On Clock<br>Pick {pick_num}"
-                    cell_style = "class='current-cell' style='background-color:#ffeb3b; color:#000;'"
-                elif is_current and current_pick <= MAX_PICKS:
-                    cell = f"Stopped<br>Pick {pick_num}"
-                    cell_style = "class='stopped-cell'"
-                else:
-                    cell = f"Pick {pick_num}"
-                    cell_style = ""
-
-                grid_html += f"<td {cell_style}>{cell}</td>"
+            for coach in draft_order:
+                grid_html += f"<th>{html.escape(coach)}</th>"
             grid_html += "</tr>"
 
-        grid_html += "</table></div>"
-        st.markdown(grid_html, unsafe_allow_html=True)
+            for round_num in range(10):
+                grid_html += f"<tr><td><b>Round {round_num + 1}</b></td>"
+                team_count = len(draft_order)
+                for column_num in range(team_count):
+                    if round_num % 2 == 0:
+                        pick_num = round_num * team_count + column_num + 1
+                    else:
+                        pick_num = round_num * team_count + (team_count - 1 - column_num) + 1
 
-        st.subheader("Available Golfers — Click to Draft")
-        st.caption("Sorted by odds, then last name. Use search and pages for faster loading on mobile.")
+                    picked_golfer = next((pick[2] for pick in picks if pick[0] == pick_num), None)
+                    is_current = pick_num == current_pick
 
-        draft_player_pool, field_note = get_draft_player_pool(SELECTED_TOURNAMENT)
-        if draft_player_pool:
-            st.caption(field_note)
-        else:
-            st.warning(field_note)
-        sorted_players = sorted(draft_player_pool, key=odds_sort_key)
-        available = [golfer for golfer in sorted_players if golfer not in picked_golfers]
-        golfer_search = st.text_input("Find Golfer", value="", key="available_golfer_search").strip().lower()
-        if golfer_search:
-            available = [golfer for golfer in available if golfer_search in golfer.lower()]
-        total_available = len(available)
+                    if picked_golfer:
+                        cell = html.escape(display_player_name(picked_golfer))
+                        cell_style = ""
+                    elif is_current and state["draft_active"]:
+                        cell = f"On Clock<br>Pick {pick_num}"
+                        cell_style = "class='current-cell' style='background-color:#ffeb3b; color:#000;'"
+                    elif is_current and current_pick <= MAX_PICKS:
+                        cell = f"Stopped<br>Pick {pick_num}"
+                        cell_style = "class='stopped-cell'"
+                    else:
+                        cell = f"Pick {pick_num}"
+                        cell_style = ""
 
-        if draft_player_pool and total_available == 0 and not golfer_search and state["draft_active"] and current_pick <= MAX_PICKS:
-            result, _ = finish_draft("Complete draft - golfer pool exhausted")
-            if result:
-                st.success("Draft complete. All available golfers have been drafted and rosters are saved.")
-                time.sleep(0.5)
-                st.rerun()
+                    grid_html += f"<td {cell_style}>{cell}</td>"
+                grid_html += "</tr>"
 
-        total_pages = max(1, (total_available + AVAILABLE_GOLFERS_PAGE_SIZE - 1) // AVAILABLE_GOLFERS_PAGE_SIZE)
-        current_page = min(max(int(st.session_state.get("available_golfers_page", 1) or 1), 1), total_pages)
-        st.session_state.available_golfers_page = current_page
+            grid_html += "</table></div>"
+            st.markdown(grid_html, unsafe_allow_html=True)
 
-        if total_available:
-            start_display = (current_page - 1) * AVAILABLE_GOLFERS_PAGE_SIZE + 1
-            end_display = min(current_page * AVAILABLE_GOLFERS_PAGE_SIZE, total_available)
-            range_text = f"Showing {start_display}-{end_display} of {total_available}"
-        else:
-            start_display = 0
-            end_display = 0
-            range_text = "No available golfers"
+            st.subheader("Available Golfers — Click to Draft")
+            st.caption("Sorted by odds, then last name. Use search and pages for faster loading on mobile.")
 
-        nav_left, nav_center, nav_right = st.columns([1, 2.4, 1])
-        with nav_left:
-            st.markdown("<div class='draft-page-side'>", unsafe_allow_html=True)
-            if st.button("←", disabled=current_page <= 1, use_container_width=True, key="available_prev_page"):
-                st.session_state.available_golfers_page = max(1, current_page - 1)
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-        with nav_center:
-            st.markdown(
-                f"<div class='draft-page-center'>Page {current_page} of {total_pages} • {html.escape(range_text)}</div>",
-                unsafe_allow_html=True,
-            )
-        with nav_right:
-            st.markdown("<div class='draft-page-side'>", unsafe_allow_html=True)
-            if st.button("→", disabled=current_page >= total_pages, use_container_width=True, key="available_next_page"):
-                st.session_state.available_golfers_page = min(total_pages, current_page + 1)
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+            draft_player_pool, field_note = get_draft_player_pool(SELECTED_TOURNAMENT)
+            if draft_player_pool:
+                st.caption(field_note)
+            else:
+                st.warning(field_note)
+            sorted_players = sorted(draft_player_pool, key=odds_sort_key)
+            available = [golfer for golfer in sorted_players if golfer not in picked_golfers]
+            golfer_search = st.text_input("Find Golfer", value="", key="available_golfer_search").strip().lower()
+            if golfer_search:
+                available = [golfer for golfer in available if golfer_search in golfer.lower()]
+            total_available = len(available)
 
-        page_start = (current_page - 1) * AVAILABLE_GOLFERS_PAGE_SIZE
-        page_end = page_start + AVAILABLE_GOLFERS_PAGE_SIZE
-        available_page = available[page_start:page_end]
+            if draft_player_pool and total_available == 0 and not golfer_search and state["draft_active"] and current_pick <= MAX_PICKS:
+                result, _ = finish_draft("Complete draft - golfer pool exhausted")
+                if result:
+                    st.success("Draft complete. All available golfers have been drafted and rosters are saved.")
+                    time.sleep(0.5)
+                    st.rerun()
 
-        if state["draft_active"] and current_pick <= MAX_PICKS:
-            current_coach = get_coach_for_pick(current_pick, draft_order)
-            current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
-            current_team_name = teams_data.get(current_coach, {}).get("team_name", current_coach)
-            st.markdown(
-                f"<div class='make-pick-prompt' style='color:{html.escape(current_color)}; "
-                f"background:{html.escape(current_color)}14;'>"
-                f"{html.escape(current_team_name)}, make your pick below."
-                f"</div>",
-                unsafe_allow_html=True,
-            )
+            total_pages = max(1, (total_available + AVAILABLE_GOLFERS_PAGE_SIZE - 1) // AVAILABLE_GOLFERS_PAGE_SIZE)
+            current_page = min(max(int(st.session_state.get("available_golfers_page", 1) or 1), 1), total_pages)
+            st.session_state.available_golfers_page = current_page
 
-        draft_button_color = "#39FF14"
-        if state["draft_active"] and current_pick <= MAX_PICKS:
-            draft_button_coach = get_coach_for_pick(current_pick, draft_order)
-            draft_button_color = teams_data.get(draft_button_coach, {}).get("color", "#39FF14")
-        safe_draft_button_color = html.escape(str(draft_button_color or "#39FF14"))
-        if state["draft_active"] and current_pick <= MAX_PICKS:
-            st.markdown(
-                f"""
-                <style>
-                div[class*="st-key-pick_"] div[data-testid="stButton"] > button {{
-                    background:{safe_draft_button_color}14!important;
-                    border:2px solid {safe_draft_button_color}!important;
-                    box-shadow:0 0 18px {safe_draft_button_color}88!important;
-                    color:#fff!important;
-                }}
-                div[class*="st-key-pick_"] div[data-testid="stButton"] > button:hover {{
-                    background:{safe_draft_button_color}28!important;
-                    border-color:{safe_draft_button_color}!important;
-                    box-shadow:0 0 24px {safe_draft_button_color}cc!important;
-                }}
-                </style>
-                """,
-                unsafe_allow_html=True,
-            )
+            if total_available:
+                start_display = (current_page - 1) * AVAILABLE_GOLFERS_PAGE_SIZE + 1
+                end_display = min(current_page * AVAILABLE_GOLFERS_PAGE_SIZE, total_available)
+                range_text = f"Showing {start_display}-{end_display} of {total_available}"
+            else:
+                start_display = 0
+                end_display = 0
+                range_text = "No available golfers"
 
-        for row_start in range(0, len(available_page), 3):
-            row_cols = st.columns(3)
-            row_players = available_page[row_start:row_start + 3]
+            nav_left, nav_center, nav_right = st.columns([1, 2.4, 1])
+            with nav_left:
+                st.markdown("<div class='draft-page-side'>", unsafe_allow_html=True)
+                if st.button("←", disabled=current_page <= 1, use_container_width=True, key="available_prev_page"):
+                    st.session_state.available_golfers_page = max(1, current_page - 1)
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+            with nav_center:
+                st.markdown(
+                    f"<div class='draft-page-center'>Page {current_page} of {total_pages} • {html.escape(range_text)}</div>",
+                    unsafe_allow_html=True,
+                )
+            with nav_right:
+                st.markdown("<div class='draft-page-side'>", unsafe_allow_html=True)
+                if st.button("→", disabled=current_page >= total_pages, use_container_width=True, key="available_next_page"):
+                    st.session_state.available_golfers_page = min(total_pages, current_page + 1)
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
-            for col_idx, golfer in enumerate(row_players):
-                with row_cols[col_idx]:
-                    odds_label = golfer_odds_label(golfer)
-                    disabled = not state["draft_active"] or current_pick > MAX_PICKS
+            page_start = (current_page - 1) * AVAILABLE_GOLFERS_PAGE_SIZE
+            page_end = page_start + AVAILABLE_GOLFERS_PAGE_SIZE
+            available_page = available[page_start:page_end]
 
-                    st.markdown("<div class='golfer-pick-wrap'>", unsafe_allow_html=True)
-                    pick_clicked = st.button(
-                        f"{display_player_name(golfer)} {odds_label}",
-                        key=f"pick_{golfer}",
-                        disabled=disabled,
-                        use_container_width=True,
-                    )
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    if pick_clicked:
-                        with st.spinner(f"Saving {display_player_name(golfer)}..."):
-                            result, _ = make_draft_pick(golfer)
-                            if result:
-                                st.rerun()
+            if state["draft_active"] and current_pick <= MAX_PICKS:
+                current_coach = get_coach_for_pick(current_pick, draft_order)
+                current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
+                current_team_name = teams_data.get(current_coach, {}).get("team_name", current_coach)
+                st.markdown(
+                    f"<div class='make-pick-prompt' style='color:{html.escape(current_color)}; "
+                    f"background:{html.escape(current_color)}14;'>"
+                    f"{html.escape(current_team_name)}, make your pick below."
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
 
+            draft_button_color = "#39FF14"
+            if state["draft_active"] and current_pick <= MAX_PICKS:
+                draft_button_coach = get_coach_for_pick(current_pick, draft_order)
+                draft_button_color = teams_data.get(draft_button_coach, {}).get("color", "#39FF14")
+            safe_draft_button_color = html.escape(str(draft_button_color or "#39FF14"))
+            if state["draft_active"] and current_pick <= MAX_PICKS:
+                st.markdown(
+                    f"""
+                    <style>
+                    div[class*="st-key-pick_"] div[data-testid="stButton"] > button {{
+                        background:{safe_draft_button_color}14!important;
+                        border:2px solid {safe_draft_button_color}!important;
+                        box-shadow:0 0 18px {safe_draft_button_color}88!important;
+                        color:#fff!important;
+                    }}
+                    div[class*="st-key-pick_"] div[data-testid="stButton"] > button:hover {{
+                        background:{safe_draft_button_color}28!important;
+                        border-color:{safe_draft_button_color}!important;
+                        box-shadow:0 0 24px {safe_draft_button_color}cc!important;
+                    }}
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            for row_start in range(0, len(available_page), 3):
+                row_cols = st.columns(3)
+                row_players = available_page[row_start:row_start + 3]
+
+                for col_idx, golfer in enumerate(row_players):
+                    with row_cols[col_idx]:
+                        odds_label = golfer_odds_label(golfer)
+                        disabled = not state["draft_active"] or current_pick > MAX_PICKS
+
+                        st.markdown("<div class='golfer-pick-wrap'>", unsafe_allow_html=True)
+                        pick_clicked = st.button(
+                            f"{display_player_name(golfer)} {odds_label}",
+                            key=f"pick_{golfer}",
+                            disabled=disabled,
+                            use_container_width=True,
+                        )
+                        st.markdown("</div>", unsafe_allow_html=True)
+                        if pick_clicked:
+                            with st.spinner(f"Saving {display_player_name(golfer)}..."):
+                                result, _ = make_draft_pick(golfer)
+                                if result:
+                                    st.rerun()
 with st.expander("🔧 Admin Section", expanded=False):
     st.subheader("App Settings")
     with st.form("app_settings_form"):
