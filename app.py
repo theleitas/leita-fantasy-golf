@@ -123,6 +123,7 @@ DEFAULT_APP_TITLE = "DeskCheck Golf Challenge"
 DEFAULT_COACHES = ["McClure", "Red", "Marco", "Brax", "CMO", "Handler", "A-Burst", "Lutt", "Jeff"]
 MAX_ROUNDS = 10
 MAX_PICKS = len(DEFAULT_COACHES) * MAX_ROUNDS
+ADMIN_ROSTER_RESET_TOKEN = "admin_confirmed_roster_reset"
 ESPN_LEADERBOARD_BASE_URL = "https://site.web.api.espn.com/apis/site/v2/sports/golf/leaderboard"
 ESPN_PGA_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard"
 AUTO_SCORE_REFRESH_SECONDS = 5 * 60
@@ -657,6 +658,9 @@ def save_state_to_github(state, sha, message_prefix="Update draft state"):
 def mutate_shared_state(mutator, message_prefix):
     for _ in range(3):
         fresh_state, fresh_sha = load_state_from_github(show_warning=False)
+        if GITHUB_TOKEN and not fresh_sha:
+            st.error("Could not load the saved roster state, so nothing was saved. This prevents accidental roster wipes.")
+            return False, None
         result = mutator(fresh_state)
         if result is False:
             return False, fresh_state
@@ -1541,7 +1545,10 @@ def get_picked_golfers(state):
         picked.update(info.get("players", []))
     return picked
 
-def reset_rosters_in_state(state):
+def reset_rosters_in_state(state, reset_token=None):
+    if reset_token != ADMIN_ROSTER_RESET_TOKEN:
+        st.error("Roster reset is only available from the confirmed Admin reset action.")
+        return False
     for coach, info in state["teams"].items():
         info["players"] = []
     state["draft_active"] = False
@@ -2158,12 +2165,25 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
             draft_button_coach = get_coach_for_pick(current_pick, draft_order)
             draft_button_color = teams_data.get(draft_button_coach, {}).get("color", "#39FF14")
         safe_draft_button_color = html.escape(str(draft_button_color or "#39FF14"))
-        draft_button_style = (
-            f"--pick-color:{safe_draft_button_color}; "
-            f"--pick-bg:{safe_draft_button_color}14; "
-            f"--pick-hover-bg:{safe_draft_button_color}28; "
-            f"--pick-shadow:{safe_draft_button_color}66;"
-        )
+        if state["draft_active"] and current_pick <= MAX_PICKS:
+            st.markdown(
+                f"""
+                <style>
+                div[class*="st-key-pick_"] div[data-testid="stButton"] > button {{
+                    background:{safe_draft_button_color}14!important;
+                    border:2px solid {safe_draft_button_color}!important;
+                    box-shadow:0 0 18px {safe_draft_button_color}88!important;
+                    color:#fff!important;
+                }}
+                div[class*="st-key-pick_"] div[data-testid="stButton"] > button:hover {{
+                    background:{safe_draft_button_color}28!important;
+                    border-color:{safe_draft_button_color}!important;
+                    box-shadow:0 0 24px {safe_draft_button_color}cc!important;
+                }}
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
 
         for row_start in range(0, len(available_page), 3):
             row_cols = st.columns(3)
@@ -2174,7 +2194,7 @@ with st.expander("🎯 DRAFT SECTION", expanded=state["draft_enabled"]):
                     odds_label = golfer_odds_label(golfer)
                     disabled = not state["draft_active"] or current_pick > MAX_PICKS
 
-                    st.markdown(f"<div class='golfer-pick-wrap' style='{draft_button_style}'>", unsafe_allow_html=True)
+                    st.markdown("<div class='golfer-pick-wrap'>", unsafe_allow_html=True)
                     pick_clicked = st.button(
                         f"{display_player_name(golfer)} {odds_label}",
                         key=f"pick_{golfer}",
@@ -2292,7 +2312,10 @@ with st.expander("🔧 Admin Section", expanded=False):
 
             with col1:
                 if st.button("✅ YES, CLEAR EVERYTHING", type="primary", use_container_width=True):
-                    result, _ = mutate_shared_state(reset_rosters_in_state, "Reset draft")
+                    result, _ = mutate_shared_state(
+                        lambda draft_state: reset_rosters_in_state(draft_state, ADMIN_ROSTER_RESET_TOKEN),
+                        "Admin confirmed roster reset",
+                    )
                     if result:
                         st.session_state.confirm_clear_rosters = False
                         st.success("✅ All rosters cleared and draft fully reset!")
