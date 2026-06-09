@@ -81,7 +81,9 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .pick-face-placeholder { width:3.4rem; height:3.4rem; border-radius:50%; border:3px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.56rem; font-weight:900; line-height:1.02; text-align:center; overflow:hidden; flex:0 0 auto; padding:5px; background:#050505; box-shadow:0 0 16px currentColor; }
 .on-deck-face { width:2.45rem; height:2.45rem; border-radius:50%; object-fit:cover; border:2px solid currentColor; flex:0 0 auto; box-shadow:0 0 11px currentColor; }
 .on-deck-face-placeholder { width:2.45rem; height:2.45rem; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.46rem; font-weight:900; line-height:1; text-align:center; overflow:hidden; flex:0 0 auto; padding:4px; background:#050505; box-shadow:0 0 11px currentColor; }
-.make-pick-prompt { width:100%; border:2px solid currentColor; border-radius:8px; padding:10px 12px; margin:.8rem 0 .7rem 0; color:currentColor; background:rgba(255,255,255,.04); font-size:clamp(1rem, 3vw, 1.35rem); font-weight:1000; text-align:center; box-shadow:0 0 12px currentColor; }
+.make-pick-prompt { width:100%; border:2px solid currentColor; border-radius:8px; padding:8px 12px; margin:.45rem 0 .35rem 0; color:currentColor; background:rgba(255,255,255,.04); font-size:clamp(1rem, 3vw, 1.35rem); font-weight:1000; text-align:center; box-shadow:0 0 12px currentColor; display:flex; align-items:center; justify-content:center; gap:10px; }
+.prompt-face { width:2.35rem; height:2.35rem; border-radius:50%; object-fit:cover; border:2px solid currentColor; flex:0 0 auto; box-shadow:0 0 11px currentColor; }
+.prompt-face-placeholder { width:2.35rem; height:2.35rem; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.45rem; font-weight:900; line-height:1; text-align:center; overflow:hidden; flex:0 0 auto; padding:4px; background:#050505; box-shadow:0 0 11px currentColor; }
 .undo-pick-wrap { margin:.65rem 0 1rem 0; }
 .undo-pick-wrap div[data-testid="stButton"] > button { background:#151515!important; color:#fff!important; border:2px solid #ffeb3b!important; box-shadow:0 0 10px rgba(255,235,59,.32)!important; }
 .undo-pick-wrap div[data-testid="stButton"] > button:hover { background:#242000!important; border-color:#fff36a!important; }
@@ -91,16 +93,21 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .draft-page-side div[data-testid="stButton"] > button:hover { background:rgba(57,255,20,.18)!important; border-color:#39ff14!important; box-shadow:0 0 14px rgba(57,255,20,.45)!important; }
 .draft-page-side div[data-testid="stButton"] > button:disabled { background:#111!important; color:#555!important; border-color:#333!important; box-shadow:none!important; }
 div[class*="st-key-available_prev_page"] div[data-testid="stButton"] > button,
-div[class*="st-key-available_next_page"] div[data-testid="stButton"] > button { min-height:44px!important; border-radius:8px!important; border:2px solid rgba(57,255,20,.72)!important; background:rgba(57,255,20,.10)!important; color:#39ff14!important; font-size:1.85rem!important; font-weight:1000!important; line-height:1!important; box-shadow:0 0 10px rgba(57,255,20,.28)!important; }
+div[class*="st-key-available_next_page"] div[data-testid="stButton"] > button { min-height:48px!important; border-radius:8px!important; border:2px solid rgba(57,255,20,.72)!important; background:rgba(57,255,20,.10)!important; color:#39ff14!important; font-size:2.35rem!important; font-weight:1000!important; line-height:.85!important; box-shadow:0 0 10px rgba(57,255,20,.28)!important; }
 div[class*="st-key-available_prev_page"] div[data-testid="stButton"] > button:hover,
 div[class*="st-key-available_next_page"] div[data-testid="stButton"] > button:hover { background:rgba(57,255,20,.18)!important; border-color:#39ff14!important; box-shadow:0 0 14px rgba(57,255,20,.45)!important; }
 div[class*="st-key-available_prev_page"] div[data-testid="stButton"] > button:disabled,
 div[class*="st-key-available_next_page"] div[data-testid="stButton"] > button:disabled { background:#111!important; color:#555!important; border-color:#333!important; box-shadow:none!important; }
 .golfer-pick-wrap div[data-testid="stButton"] > button { background:var(--pick-bg, rgba(57,255,20,.08))!important; border:2px solid var(--pick-color, #39ff14)!important; color:#fff!important; box-shadow:0 0 10px var(--pick-shadow, rgba(57,255,20,.28))!important; }
 .golfer-pick-wrap div[data-testid="stButton"] > button:hover { background:var(--pick-hover-bg, rgba(57,255,20,.16))!important; border-color:var(--pick-color, #39ff14)!important; box-shadow:0 0 16px var(--pick-shadow, rgba(57,255,20,.36))!important; }
-div[class*="st-key-pick_"] { margin-top:0!important; margin-bottom:3px!important; padding-top:0!important; padding-bottom:0!important; }
+div[data-testid="stHorizontalBlock"]:has(div[class*="st-key-pick_"]) { gap:.25rem!important; margin:0!important; padding:0!important; }
+div[data-testid="stColumn"]:has(div[class*="st-key-pick_"]) { padding-top:0!important; padding-bottom:0!important; margin-top:0!important; margin-bottom:0!important; }
+div[data-testid="stVerticalBlock"]:has(div[class*="st-key-pick_"]) { gap:0!important; row-gap:0!important; margin:0!important; padding:0!important; }
+div[data-testid="stLayoutWrapper"]:has(div[class*="st-key-pick_"]) { margin:0!important; padding:0!important; }
+div[data-testid="stElementContainer"]:has(div[class*="st-key-pick_"]) { margin:0 0 3px 0!important; padding:0!important; }
+div[class*="st-key-pick_"] { margin-top:0!important; margin-bottom:0!important; padding-top:0!important; padding-bottom:0!important; }
 div[class*="st-key-pick_"] div[data-testid="stButton"] { margin:0!important; }
-div[class*="st-key-pick_"] div[data-testid="stButton"] > button { min-height:42px!important; padding:7px 9px!important; line-height:1.12!important; }
+div[class*="st-key-pick_"] div[data-testid="stButton"] > button { min-height:38px!important; padding:5px 8px!important; line-height:1.1!important; }
 .draft-table-wrap { overflow-x:auto; width:100%; }
 @media (max-width:700px) {
     div[data-testid="column"] { width:100%!important; flex:1 1 100%!important; }
@@ -113,6 +120,7 @@ div[class*="st-key-pick_"] div[data-testid="stButton"] > button { min-height:42p
     .team-face, .team-face-placeholder { width:4rem; height:4rem; }
     .pick-face, .pick-face-placeholder { width:2.65rem; height:2.65rem; }
     .on-deck-face, .on-deck-face-placeholder { width:2.05rem; height:2.05rem; }
+    .prompt-face, .prompt-face-placeholder { width:2rem; height:2rem; }
     .current-pick-box { padding:10px 8px; gap:.25rem; }
     .draft-page-center { font-size:.92rem; }
 }
@@ -2381,10 +2389,11 @@ with draft_controls_slot:
                 current_coach = get_coach_for_pick(current_pick, draft_order)
                 current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
                 current_team_name = teams_data.get(current_coach, {}).get("team_name", current_coach)
+                prompt_face_html = coach_image_html(current_coach, current_color, "prompt-face", "prompt-face-placeholder")
                 st.markdown(
                     f"<div class='make-pick-prompt' style='color:{html.escape(current_color)}; "
                     f"background:{html.escape(current_color)}14;'>"
-                    f"{html.escape(current_team_name)}, make your pick below."
+                    f"{prompt_face_html}<span>{html.escape(current_team_name)}, make your pick below.</span>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
@@ -2403,6 +2412,9 @@ with draft_controls_slot:
                         border:2px solid {safe_draft_button_color}!important;
                         box-shadow:0 0 18px {safe_draft_button_color}88!important;
                         color:#fff!important;
+                        min-height:38px!important;
+                        padding:5px 8px!important;
+                        line-height:1.1!important;
                     }}
                     div[class*="st-key-pick_"] div[data-testid="stButton"] > button:hover {{
                         background:{safe_draft_button_color}28!important;
