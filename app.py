@@ -1624,7 +1624,7 @@ def draft_table_player_cell_html(player, player_headshots):
     safe_url = html.escape(headshot_url, quote=True)
     return (
         "<span class='draft-player-cell'>"
-        f"<img class='draft-player-headshot' src='{safe_url}' alt='' loading='lazy' width='22' height='22'>"
+        f"<img class='draft-player-headshot' src='{safe_url}' alt='' loading='lazy' width='28' height='28'>"
         f"<span>{safe_player}</span>"
         "</span>"
     )
@@ -2238,7 +2238,7 @@ with draft_controls_slot:
             .current-cell { animation:flash 1.2s infinite; font-weight:bold; }
             .stopped-cell { background-color:#333; color:#aaa; font-weight:bold; }
             .draft-player-cell { display:flex; align-items:center; justify-content:center; gap:5px; min-width:0; }
-            .draft-player-headshot { width:22px; height:22px; border-radius:50%; object-fit:cover; flex:0 0 auto; background:#111; }
+            .draft-player-headshot { width:28px; height:28px; border-radius:50%; object-fit:cover; flex:0 0 auto; background:#111; }
             </style>
             <div class="draft-table-wrap"><table class="draft-table"><tr><th>Round</th>
             """
