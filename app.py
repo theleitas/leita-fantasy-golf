@@ -77,6 +77,10 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .current-pick-coach { color:currentColor; background:#000; border-radius:6px; padding:2px 8px; text-shadow:0 0 8px currentColor; }
 .on-deck-box { width:100%; display:flex; align-items:center; justify-content:center; gap:.35rem; border:2px solid currentColor; border-radius:8px; padding:8px 12px; margin:6px 0 0 0; color:#fff; font-size:clamp(.94rem, 2.8vw, 1.22rem); font-weight:900; white-space:nowrap; overflow:hidden; text-align:center; background:rgba(255,255,255,.04); box-shadow:0 0 10px currentColor; }
 .on-deck-coach { color:currentColor; background:#000; border-radius:6px; padding:1px 7px; text-shadow:0 0 7px currentColor; }
+.pick-face { width:3.4rem; height:3.4rem; border-radius:50%; object-fit:cover; border:3px solid currentColor; flex:0 0 auto; box-shadow:0 0 16px currentColor; }
+.pick-face-placeholder { width:3.4rem; height:3.4rem; border-radius:50%; border:3px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.56rem; font-weight:900; line-height:1.02; text-align:center; overflow:hidden; flex:0 0 auto; padding:5px; background:#050505; box-shadow:0 0 16px currentColor; }
+.on-deck-face { width:2.45rem; height:2.45rem; border-radius:50%; object-fit:cover; border:2px solid currentColor; flex:0 0 auto; box-shadow:0 0 11px currentColor; }
+.on-deck-face-placeholder { width:2.45rem; height:2.45rem; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.46rem; font-weight:900; line-height:1; text-align:center; overflow:hidden; flex:0 0 auto; padding:4px; background:#050505; box-shadow:0 0 11px currentColor; }
 .make-pick-prompt { width:100%; border:2px solid currentColor; border-radius:8px; padding:10px 12px; margin:.8rem 0 .7rem 0; color:currentColor; background:rgba(255,255,255,.04); font-size:clamp(1rem, 3vw, 1.35rem); font-weight:1000; text-align:center; box-shadow:0 0 12px currentColor; }
 .undo-pick-wrap { margin:.65rem 0 1rem 0; }
 .undo-pick-wrap div[data-testid="stButton"] > button { background:#151515!important; color:#fff!important; border:2px solid #ffeb3b!important; box-shadow:0 0 10px rgba(255,235,59,.32)!important; }
@@ -107,6 +111,8 @@ div[class*="st-key-pick_"] div[data-testid="stButton"] > button { min-height:42p
     .app-title h1 { font-size:2rem; }
     .tournament-meta { font-size:1.02rem; }
     .team-face, .team-face-placeholder { width:4rem; height:4rem; }
+    .pick-face, .pick-face-placeholder { width:2.65rem; height:2.65rem; }
+    .on-deck-face, .on-deck-face-placeholder { width:2.05rem; height:2.05rem; }
     .current-pick-box { padding:10px 8px; gap:.25rem; }
     .draft-page-center { font-size:.92rem; }
 }
@@ -586,15 +592,17 @@ def top_thumbnail_html():
         "</div>"
     )
 
-def coach_image_html(coach_id, color):
+def coach_image_html(coach_id, color, image_class="team-face", placeholder_class="team-face-placeholder"):
     image_path = coach_photo_filename(coach_id)
     data_uri = image_to_data_uri(image_path)
     if data_uri:
-        return f"<img class='team-face' src='{data_uri}' alt=''>"
+        safe_class = html.escape(image_class, quote=True)
+        return f"<img class='{safe_class}' src='{data_uri}' alt=''>"
     safe_filename = html.escape(image_path)
     safe_color = html.escape(color)
+    safe_placeholder_class = html.escape(placeholder_class, quote=True)
     return (
-        f"<div class='team-face-placeholder' style='border-color:{safe_color}; color:{safe_color};'>"
+        f"<div class='{safe_placeholder_class}' style='border-color:{safe_color}; color:{safe_color};'>"
         f"{safe_filename}</div>"
     )
 
@@ -2190,16 +2198,20 @@ with draft_controls_slot:
                 safe_current_color = html.escape(current_color)
                 safe_on_deck_coach = html.escape(on_deck_coach)
                 safe_on_deck_color = html.escape(on_deck_color)
+                current_face_html = coach_image_html(current_coach, current_color, "pick-face", "pick-face-placeholder")
+                on_deck_face_html = coach_image_html(on_deck_coach, on_deck_color, "on-deck-face", "on-deck-face-placeholder") if on_deck_coach else ""
                 st.markdown(
                     "<div class='pick-status-stack'>"
                     f"<div class='current-pick-box' style='color:{safe_current_color}; "
                     f"background:{safe_current_color}26;'>"
+                    f"{current_face_html}"
                     f"<span class='current-pick-label'>Current Pick:</span> "
                     f"<span class='current-pick-coach'>{safe_current_coach}</span> "
                     f"<span class='current-pick-label'>Pick #{current_pick}</span>"
                     f"</div>"
                     + (
-                        f"<div class='on-deck-box' style='color:{safe_on_deck_color}; background:{safe_on_deck_color}18;'>"
+                    f"<div class='on-deck-box' style='color:{safe_on_deck_color}; background:{safe_on_deck_color}18;'>"
+                        f"{on_deck_face_html}"
                         f"<span>On Deck:</span> "
                         f"<span class='on-deck-coach'>{safe_on_deck_coach}</span> "
                         f"<span>Pick #{on_deck_pick}</span>"
@@ -2215,9 +2227,11 @@ with draft_controls_slot:
                 current_color = teams_data.get(current_coach, {}).get("color", "#39FF14")
                 safe_current_coach = html.escape(current_coach)
                 safe_current_color = html.escape(current_color)
+                current_face_html = coach_image_html(current_coach, current_color, "pick-face", "pick-face-placeholder")
                 st.markdown(
                     "<div class='pick-status-stack'>"
                     f"<div class='current-pick-box' style='color:{safe_current_color}; background:{safe_current_color}18;'>"
+                    f"{current_face_html}"
                     f"<span class='current-pick-label'>Next Pick:</span> "
                     f"<span class='current-pick-coach'>{safe_current_coach}</span> "
                     f"<span class='current-pick-label'>Pick #{current_pick}</span>"
