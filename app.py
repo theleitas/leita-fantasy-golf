@@ -147,7 +147,7 @@ STATE_FILE_PATH = "draft_state.json"
 BRANCH = "main"
 DEFAULT_APP_TITLE = "DeskCheck Golf Challenge"
 DEFAULT_COACHES = ["McClure", "Red", "Marco", "Brax", "CMO", "Handler", "A-Burst", "Lutt", "Jeff"]
-MAX_ROUNDS = 10
+MAX_ROUNDS = 5
 MAX_PICKS = len(DEFAULT_COACHES) * MAX_ROUNDS
 ADMIN_ROSTER_RESET_TOKEN = "admin_confirmed_roster_reset"
 ESPN_LEADERBOARD_BASE_URL = "https://site.web.api.espn.com/apis/site/v2/sports/golf/leaderboard"
@@ -157,8 +157,12 @@ AVAILABLE_GOLFERS_PAGE_SIZE = 33
 PGATOUR_FIELD_URLS_BY_ESPN_EVENT_ID = {
     "401811951": "https://www.pgatour.com/tournaments/2026/rbc-canadian-open/R2026032/field",
 }
-DEFAULT_PAYOUT_RULES = (
+OLD_DEFAULT_PAYOUT_RULES = (
     "Each coach drafts 10 golfers and antes $50. Coach with lowest 3 golfers at end of tournaments "
+    "wins with payouts of $X for 1st, $Y for 2nd, and $Z for 3rd."
+)
+DEFAULT_PAYOUT_RULES = (
+    f"Each coach drafts {MAX_ROUNDS} golfers and antes $50. Coach with lowest 3 golfers at end of tournaments "
     "wins with payouts of $X for 1st, $Y for 2nd, and $Z for 3rd."
 )
 
@@ -313,6 +317,8 @@ def normalize_state(state):
     if not str(state.get("app_title") or "").strip():
         state["app_title"] = base["app_title"]
     if not str(state.get("payout_rules") or "").strip():
+        state["payout_rules"] = base["payout_rules"]
+    elif str(state.get("payout_rules")).strip() == OLD_DEFAULT_PAYOUT_RULES:
         state["payout_rules"] = base["payout_rules"]
     state.pop("thumbnail", None)
     state.setdefault("draft_enabled", base["draft_enabled"])
@@ -2287,7 +2293,7 @@ with draft_controls_slot:
                 grid_html += f"<th {header_style}>{html.escape(coach)}</th>"
             grid_html += "</tr>"
 
-            for round_num in range(10):
+            for round_num in range(MAX_ROUNDS):
                 grid_html += f"<tr><td class='round-cell'><b>Round {round_num + 1}</b></td>"
                 team_count = len(draft_order)
                 for column_num in range(team_count):
