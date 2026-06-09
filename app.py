@@ -82,11 +82,21 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .undo-pick-wrap div[data-testid="stButton"] > button { background:#151515!important; color:#fff!important; border:2px solid #ffeb3b!important; box-shadow:0 0 10px rgba(255,235,59,.32)!important; }
 .undo-pick-wrap div[data-testid="stButton"] > button:hover { background:#242000!important; border-color:#fff36a!important; }
 .draft-page-nav { display:grid; grid-template-columns:minmax(54px, 1fr) minmax(120px, 2fr) minmax(54px, 1fr); align-items:stretch; gap:0; margin:.65rem 0 1rem; border:2px solid #39ff14; border-radius:8px; overflow:hidden; background:rgba(57,255,20,.08); }
-.draft-page-center { display:flex; align-items:center; justify-content:center; min-height:48px; color:#fff; border-left:1px solid rgba(57,255,20,.55); border-right:1px solid rgba(57,255,20,.55); font-weight:950; text-align:center; padding:0 8px; }
-.draft-page-side div[data-testid="stButton"] > button { min-height:48px!important; border-radius:0!important; border:0!important; background:rgba(57,255,20,.12)!important; color:#39ff14!important; font-size:1.2rem!important; box-shadow:none!important; }
-.draft-page-side div[data-testid="stButton"] > button:disabled { background:#111!important; color:#555!important; }
+.draft-page-center { display:flex; align-items:center; justify-content:center; min-height:44px; color:#fff; border-left:1px solid rgba(57,255,20,.55); border-right:1px solid rgba(57,255,20,.55); font-weight:950; text-align:center; padding:0 8px; }
+.draft-page-side div[data-testid="stButton"] > button { min-height:44px!important; border-radius:8px!important; border:2px solid rgba(57,255,20,.72)!important; background:rgba(57,255,20,.10)!important; color:#39ff14!important; font-size:1.65rem!important; font-weight:1000!important; line-height:1!important; box-shadow:0 0 10px rgba(57,255,20,.28)!important; }
+.draft-page-side div[data-testid="stButton"] > button:hover { background:rgba(57,255,20,.18)!important; border-color:#39ff14!important; box-shadow:0 0 14px rgba(57,255,20,.45)!important; }
+.draft-page-side div[data-testid="stButton"] > button:disabled { background:#111!important; color:#555!important; border-color:#333!important; box-shadow:none!important; }
+div[class*="st-key-available_prev_page"] div[data-testid="stButton"] > button,
+div[class*="st-key-available_next_page"] div[data-testid="stButton"] > button { min-height:44px!important; border-radius:8px!important; border:2px solid rgba(57,255,20,.72)!important; background:rgba(57,255,20,.10)!important; color:#39ff14!important; font-size:1.85rem!important; font-weight:1000!important; line-height:1!important; box-shadow:0 0 10px rgba(57,255,20,.28)!important; }
+div[class*="st-key-available_prev_page"] div[data-testid="stButton"] > button:hover,
+div[class*="st-key-available_next_page"] div[data-testid="stButton"] > button:hover { background:rgba(57,255,20,.18)!important; border-color:#39ff14!important; box-shadow:0 0 14px rgba(57,255,20,.45)!important; }
+div[class*="st-key-available_prev_page"] div[data-testid="stButton"] > button:disabled,
+div[class*="st-key-available_next_page"] div[data-testid="stButton"] > button:disabled { background:#111!important; color:#555!important; border-color:#333!important; box-shadow:none!important; }
 .golfer-pick-wrap div[data-testid="stButton"] > button { background:var(--pick-bg, rgba(57,255,20,.08))!important; border:2px solid var(--pick-color, #39ff14)!important; color:#fff!important; box-shadow:0 0 10px var(--pick-shadow, rgba(57,255,20,.28))!important; }
 .golfer-pick-wrap div[data-testid="stButton"] > button:hover { background:var(--pick-hover-bg, rgba(57,255,20,.16))!important; border-color:var(--pick-color, #39ff14)!important; box-shadow:0 0 16px var(--pick-shadow, rgba(57,255,20,.36))!important; }
+div[class*="st-key-pick_"] { margin-top:0!important; margin-bottom:3px!important; padding-top:0!important; padding-bottom:0!important; }
+div[class*="st-key-pick_"] div[data-testid="stButton"] { margin:0!important; }
+div[class*="st-key-pick_"] div[data-testid="stButton"] > button { min-height:42px!important; padding:7px 9px!important; line-height:1.12!important; }
 .draft-table-wrap { overflow-x:auto; width:100%; }
 @media (max-width:700px) {
     div[data-testid="column"] { width:100%!important; flex:1 1 100%!important; }
@@ -127,7 +137,7 @@ ADMIN_ROSTER_RESET_TOKEN = "admin_confirmed_roster_reset"
 ESPN_LEADERBOARD_BASE_URL = "https://site.web.api.espn.com/apis/site/v2/sports/golf/leaderboard"
 ESPN_PGA_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard"
 AUTO_SCORE_REFRESH_SECONDS = 5 * 60
-AVAILABLE_GOLFERS_PAGE_SIZE = 24
+AVAILABLE_GOLFERS_PAGE_SIZE = 33
 PGATOUR_FIELD_URLS_BY_ESPN_EVENT_ID = {
     "401811951": "https://www.pgatour.com/tournaments/2026/rbc-canadian-open/R2026032/field",
 }
@@ -1624,7 +1634,7 @@ def draft_table_player_cell_html(player, player_headshots):
     safe_url = html.escape(headshot_url, quote=True)
     return (
         "<span class='draft-player-cell'>"
-        f"<img class='draft-player-headshot' src='{safe_url}' alt='' loading='lazy' width='28' height='28'>"
+        f"<img class='draft-player-headshot' src='{safe_url}' alt='' loading='lazy' width='32' height='32'>"
         f"<span>{safe_player}</span>"
         "</span>"
     )
@@ -2238,7 +2248,7 @@ with draft_controls_slot:
             .current-cell { font-weight:bold; }
             .stopped-cell { color:#bbb; font-weight:bold; }
             .draft-player-cell { display:flex; align-items:center; justify-content:center; gap:5px; min-width:0; }
-            .draft-player-headshot { width:28px; height:28px; border-radius:50%; object-fit:cover; flex:0 0 auto; background:#111; }
+            .draft-player-headshot { width:32px; height:32px; border-radius:50%; object-fit:cover; flex:0 0 auto; background:#111; }
             </style>
             <div class="draft-table-wrap"><table class="draft-table"><tr><th>Round</th>
             """
@@ -2333,7 +2343,7 @@ with draft_controls_slot:
             nav_left, nav_center, nav_right = st.columns([1, 2.4, 1])
             with nav_left:
                 st.markdown("<div class='draft-page-side'>", unsafe_allow_html=True)
-                if st.button("←", disabled=current_page <= 1, use_container_width=True, key="available_prev_page"):
+                if st.button("‹", disabled=current_page <= 1, use_container_width=True, key="available_prev_page"):
                     st.session_state.available_golfers_page = max(1, current_page - 1)
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -2344,7 +2354,7 @@ with draft_controls_slot:
                 )
             with nav_right:
                 st.markdown("<div class='draft-page-side'>", unsafe_allow_html=True)
-                if st.button("→", disabled=current_page >= total_pages, use_container_width=True, key="available_next_page"):
+                if st.button("›", disabled=current_page >= total_pages, use_container_width=True, key="available_next_page"):
                     st.session_state.available_golfers_page = min(total_pages, current_page + 1)
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -2391,7 +2401,7 @@ with draft_controls_slot:
                 )
 
             for row_start in range(0, len(available_page), 3):
-                row_cols = st.columns(3)
+                row_cols = st.columns(3, gap="small")
                 row_players = available_page[row_start:row_start + 3]
 
                 for col_idx, golfer in enumerate(row_players):
