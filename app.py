@@ -2231,12 +2231,12 @@ with draft_controls_slot:
 
             grid_html = """
             <style>
-            @keyframes flash { 0% { background-color:#ffeb3b; } 50% { background-color:#fff59d; } 100% { background-color:#ffeb3b; } }
             .draft-table { width:100%; min-width:980px; border-collapse:collapse; font-size:.78rem; background:#000; color:#fff; }
             .draft-table th, .draft-table td { border:1px solid #555; padding:7px; text-align:center; }
             .draft-table th { background-color:#1f1f1f; color:#fff; }
-            .current-cell { animation:flash 1.2s infinite; font-weight:bold; }
-            .stopped-cell { background-color:#333; color:#aaa; font-weight:bold; }
+            .draft-table .round-cell { background:#111; color:#fff; border-color:#555; }
+            .current-cell { font-weight:bold; }
+            .stopped-cell { color:#bbb; font-weight:bold; }
             .draft-player-cell { display:flex; align-items:center; justify-content:center; gap:5px; min-width:0; }
             .draft-player-headshot { width:28px; height:28px; border-radius:50%; object-fit:cover; flex:0 0 auto; background:#111; }
             </style>
@@ -2244,13 +2244,26 @@ with draft_controls_slot:
             """
 
             for coach in draft_order:
-                grid_html += f"<th>{html.escape(coach)}</th>"
+                coach_color = html.escape(str(teams_data.get(coach, {}).get("color", "#555555")))
+                header_style = (
+                    f"style='background:{coach_color}24; color:{coach_color}; "
+                    f"border-color:{coach_color}; box-shadow:inset 0 0 12px {coach_color}66; "
+                    f"text-shadow:0 0 8px {coach_color};'"
+                )
+                grid_html += f"<th {header_style}>{html.escape(coach)}</th>"
             grid_html += "</tr>"
 
             for round_num in range(10):
-                grid_html += f"<tr><td><b>Round {round_num + 1}</b></td>"
+                grid_html += f"<tr><td class='round-cell'><b>Round {round_num + 1}</b></td>"
                 team_count = len(draft_order)
                 for column_num in range(team_count):
+                    column_coach = draft_order[column_num]
+                    column_color = html.escape(str(teams_data.get(column_coach, {}).get("color", "#555555")))
+                    column_style = (
+                        f"background:{column_color}10; border-left:2px solid {column_color}; "
+                        f"border-right:2px solid {column_color}; border-top-color:{column_color}66; "
+                        f"border-bottom-color:{column_color}66; box-shadow:inset 0 0 9px {column_color}2f;"
+                    )
                     if round_num % 2 == 0:
                         pick_num = round_num * team_count + column_num + 1
                     else:
@@ -2261,16 +2274,20 @@ with draft_controls_slot:
 
                     if picked_golfer:
                         cell = draft_table_player_cell_html(picked_golfer, state.get("player_headshots", {}))
-                        cell_style = ""
+                        cell_style = f"style='{column_style} color:#fff;'"
                     elif is_current and state["draft_active"]:
                         cell = f"On Clock<br>Pick {pick_num}"
-                        cell_style = "class='current-cell' style='background-color:#ffeb3b; color:#000;'"
+                        cell_style = (
+                            f"class='current-cell' style='background:{column_color}38; color:#fff; "
+                            f"border:2px solid {column_color}; box-shadow:inset 0 0 16px {column_color}99, "
+                            f"0 0 14px {column_color}88; text-shadow:0 0 8px {column_color};'"
+                        )
                     elif is_current and current_pick <= MAX_PICKS:
                         cell = f"Stopped<br>Pick {pick_num}"
-                        cell_style = "class='stopped-cell'"
+                        cell_style = f"class='stopped-cell' style='{column_style}'"
                     else:
                         cell = f"Pick {pick_num}"
-                        cell_style = ""
+                        cell_style = f"style='{column_style} color:#ddd;'"
 
                     grid_html += f"<td {cell_style}>{cell}</td>"
                 grid_html += "</tr>"
