@@ -81,7 +81,7 @@ div[data-testid="stButton"] > button:disabled, div[data-testid="stButton"] > but
 .pick-face-placeholder { width:3.4rem; height:3.4rem; border-radius:50%; border:3px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.56rem; font-weight:900; line-height:1.02; text-align:center; overflow:hidden; flex:0 0 auto; padding:5px; background:#050505; box-shadow:0 0 16px currentColor; }
 .on-deck-face { width:2.45rem; height:2.45rem; border-radius:50%; object-fit:cover; border:2px solid currentColor; flex:0 0 auto; box-shadow:0 0 11px currentColor; }
 .on-deck-face-placeholder { width:2.45rem; height:2.45rem; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.46rem; font-weight:900; line-height:1; text-align:center; overflow:hidden; flex:0 0 auto; padding:4px; background:#050505; box-shadow:0 0 11px currentColor; }
-.make-pick-prompt { width:100%; border:2px solid currentColor; border-radius:8px; padding:8px 12px; margin:.45rem 0 .35rem 0; color:currentColor; background:rgba(255,255,255,.04); font-size:clamp(1rem, 3vw, 1.35rem); font-weight:1000; text-align:center; box-shadow:0 0 12px currentColor; display:flex; align-items:center; justify-content:center; gap:10px; }
+.make-pick-prompt { width:100%; border:2px solid currentColor; border-radius:8px; padding:8px 12px; margin:.45rem 0 .75rem 0; color:currentColor; background:rgba(255,255,255,.04); font-size:clamp(1rem, 3vw, 1.35rem); font-weight:1000; text-align:center; box-shadow:0 0 12px currentColor; display:flex; align-items:center; justify-content:center; gap:10px; position:relative; z-index:1; }
 .prompt-face { width:2.35rem; height:2.35rem; border-radius:50%; object-fit:cover; border:2px solid currentColor; flex:0 0 auto; box-shadow:0 0 11px currentColor; }
 .prompt-face-placeholder { width:2.35rem; height:2.35rem; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.45rem; font-weight:900; line-height:1; text-align:center; overflow:hidden; flex:0 0 auto; padding:4px; background:#050505; box-shadow:0 0 11px currentColor; }
 .undo-pick-wrap { margin:.65rem 0 1rem 0; }
@@ -103,8 +103,10 @@ div[class*="st-key-available_next_page"] div[data-testid="stButton"] > button:di
 div[data-testid="stHorizontalBlock"]:has(div[class*="st-key-pick_"]) { gap:.25rem!important; margin:0!important; padding:0!important; }
 div[data-testid="stColumn"]:has(div[class*="st-key-pick_"]) { padding-top:0!important; padding-bottom:0!important; margin-top:0!important; margin-bottom:0!important; }
 div[data-testid="stVerticalBlock"]:has(div[class*="st-key-pick_"]) { gap:0!important; row-gap:0!important; margin:0!important; padding:0!important; }
+div[data-testid="stVerticalBlock"]:has(> div[data-testid="stLayoutWrapper"] > div[data-testid="stHorizontalBlock"] div[class*="st-key-pick_"]) { gap:7px!important; row-gap:7px!important; }
 div[data-testid="stLayoutWrapper"]:has(div[class*="st-key-pick_"]) { margin:0!important; padding:0!important; }
-div[data-testid="stElementContainer"]:has(div[class*="st-key-pick_"]) { margin:0 0 3px 0!important; padding:0!important; }
+div[data-testid="stElementContainer"]:has(.make-pick-prompt) { margin-bottom:8px!important; }
+div[data-testid="stElementContainer"]:has(div[class*="st-key-pick_"]) { margin:0 0 7px 0!important; padding:0!important; }
 div[class*="st-key-pick_"] { margin-top:0!important; margin-bottom:0!important; padding-top:0!important; padding-bottom:0!important; }
 div[class*="st-key-pick_"] div[data-testid="stButton"] { margin:0!important; }
 div[class*="st-key-pick_"] div[data-testid="stButton"] > button { min-height:38px!important; padding:5px 8px!important; line-height:1.1!important; }
