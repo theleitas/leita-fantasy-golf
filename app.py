@@ -271,6 +271,7 @@ def default_state():
         "last_pick_started_at": 0,
         "player_results": {},
         "hole_outcomes": {},
+        "player_headshots": {},
         "last_score_refresh_at": 0,
         "last_score_refresh_attempt_at": 0,
         "teams": default_teams(),
@@ -294,6 +295,7 @@ def normalize_state(state):
     state.setdefault("last_pick_started_at", base["last_pick_started_at"])
     state.setdefault("player_results", base["player_results"])
     state.setdefault("hole_outcomes", base["hole_outcomes"])
+    state.setdefault("player_headshots", base["player_headshots"])
     state.setdefault("last_score_refresh_at", base["last_score_refresh_at"])
     state.setdefault("last_score_refresh_attempt_at", base["last_score_refresh_attempt_at"])
     state.setdefault("teams", base["teams"])
@@ -325,6 +327,13 @@ def normalize_state(state):
         state["selected_tournament"] = {}
     if not isinstance(state.get("hole_outcomes"), dict):
         state["hole_outcomes"] = {}
+    if not isinstance(state.get("player_headshots"), dict):
+        state["player_headshots"] = {}
+    state["player_headshots"] = {
+        str(player): str(url)
+        for player, url in state["player_headshots"].items()
+        if str(player).strip() and str(url).strip()
+    }
     return state
 
 def parse_espn_datetime(value):
@@ -1025,6 +1034,64 @@ def fetch_tournament_field(event_id=""):
     players.sort(key=lambda player: (last_name_key(player), player.lower()))
     return players
 
+def canonical_player_name_from_field_record(player):
+    first = str(player.get("firstName") or "").strip()
+    last = str(player.get("lastName") or "").strip()
+    name = " ".join(part for part in [first, last] if part).strip()
+    if not name:
+        display_name = str(player.get("displayName") or player.get("playerName") or "").strip()
+        if "," in display_name:
+            last_part, first_part = [part.strip() for part in display_name.split(",", 1)]
+            name = " ".join(part for part in [first_part, last_part] if part)
+        else:
+            name = display_name
+    if not name:
+        return ""
+    return PLAYER_NAME_LOOKUP.get(normalize_player_match_name(name)) or name
+
+def small_headshot_url(url, width=44, height=44):
+    url = str(url or "").strip()
+    if not url:
+        return ""
+    replacements = {
+        "${WIDTH}": str(width),
+        "${HEIGHT}": str(height),
+        "%24%7BWIDTH%7D": str(width),
+        "%24%7BHEIGHT%7D": str(height),
+    }
+    for marker, value in replacements.items():
+        url = url.replace(marker, value)
+    return url
+
+def extract_headshot_url_from_athlete(athlete):
+    if not isinstance(athlete, dict):
+        return ""
+
+    headshot = athlete.get("headshot")
+    if isinstance(headshot, dict):
+        for key in ["href", "url", "displayValue"]:
+            url = small_headshot_url(headshot.get(key))
+            if url:
+                return url
+    elif isinstance(headshot, str):
+        url = small_headshot_url(headshot)
+        if url:
+            return url
+
+    headshots = athlete.get("headshots")
+    if isinstance(headshots, list):
+        for item in headshots:
+            if not isinstance(item, dict):
+                continue
+            url = small_headshot_url(item.get("href") or item.get("url"))
+            if url:
+                return url
+
+    athlete_id = str(athlete.get("id") or "").strip()
+    if athlete_id:
+        return f"https://a.espncdn.com/i/headshots/golf/players/full/{athlete_id}.png"
+    return ""
+
 def extract_pgatour_field_players_from_payload(payload):
     candidate_lists = []
 
@@ -1056,19 +1123,9 @@ def extract_pgatour_field_players_from_payload(payload):
         status_text = str(player.get("status") or "").strip().lower()
         if player.get("withdrawn") or "withdraw" in status_text:
             continue
-        first = str(player.get("firstName") or "").strip()
-        last = str(player.get("lastName") or "").strip()
-        name = " ".join(part for part in [first, last] if part).strip()
-        if not name:
-            display_name = str(player.get("displayName") or player.get("playerName") or "").strip()
-            if "," in display_name:
-                last_part, first_part = [part.strip() for part in display_name.split(",", 1)]
-                name = " ".join(part for part in [first_part, last_part] if part)
-            else:
-                name = display_name
-        if not name:
+        canonical_name = canonical_player_name_from_field_record(player)
+        if not canonical_name:
             continue
-        canonical_name = PLAYER_NAME_LOOKUP.get(normalize_player_match_name(name)) or name
         key = normalize_player_match_name(canonical_name)
         if key in seen:
             continue
@@ -1077,6 +1134,24 @@ def extract_pgatour_field_players_from_payload(payload):
 
     players.sort(key=lambda player: (last_name_key(player), player.lower()))
     return players
+
+def extract_pgatour_headshots_from_payload(payload):
+    headshots = {}
+
+    def walk(value):
+        if isinstance(value, dict):
+            name = canonical_player_name_from_field_record(value)
+            url = small_headshot_url(value.get("headshot"))
+            if name and url:
+                headshots[normalize_player_match_name(name)] = url
+            for child in value.values():
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+
+    walk(payload)
+    return headshots
 
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_pgatour_field(field_url):
@@ -1095,6 +1170,64 @@ def fetch_pgatour_field(field_url):
         return []
     payload = json.loads(html.unescape(match.group(1)))
     return extract_pgatour_field_players_from_payload(payload)
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def fetch_pgatour_field_headshots(field_url):
+    if not field_url:
+        return {}
+    resp = requests.get(
+        field_url,
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    match = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+        resp.text,
+        flags=re.DOTALL,
+    )
+    if not match:
+        return {}
+    payload = json.loads(html.unescape(match.group(1)))
+    return extract_pgatour_headshots_from_payload(payload)
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def fetch_espn_field_headshots(event_id=""):
+    if not event_id:
+        return {}
+    params = {"league": "pga", "event": str(event_id)}
+    resp = requests.get(ESPN_LEADERBOARD_BASE_URL, params=params, timeout=12)
+    resp.raise_for_status()
+    payload = resp.json()
+    headshots = {}
+    for competitor in extract_competitors(payload):
+        raw_name = extract_athlete_name(competitor)
+        player = PLAYER_NAME_LOOKUP.get(normalize_player_match_name(raw_name)) or str(raw_name or "").strip()
+        athlete = competitor.get("athlete") if isinstance(competitor.get("athlete"), dict) else {}
+        url = extract_headshot_url_from_athlete(athlete)
+        if player and url:
+            headshots[normalize_player_match_name(player)] = url
+    return headshots
+
+def get_tournament_headshot_lookup(tournament):
+    event_id = str((tournament or {}).get("event_id") or "").strip()
+    lookup = {}
+    if event_id:
+        try:
+            lookup.update(fetch_espn_field_headshots(event_id))
+        except Exception:
+            pass
+        pgatour_url = PGATOUR_FIELD_URLS_BY_ESPN_EVENT_ID.get(event_id)
+        if pgatour_url:
+            try:
+                lookup.update(fetch_pgatour_field_headshots(pgatour_url))
+            except Exception:
+                pass
+    return lookup
+
+def get_player_headshot_url(player, tournament):
+    lookup = get_tournament_headshot_lookup(tournament)
+    return lookup.get(normalize_player_match_name(player), "")
 
 def get_draft_player_pool(tournament):
     event_id = str((tournament or {}).get("event_id") or "").strip()
@@ -1483,6 +1616,19 @@ def leaderboard_golfer_with_info_html(player, result):
         f"style='color:#fff; text-decoration:none; font-style:normal; font-weight:700;'>ⓘ</a>"
     )
 
+def draft_table_player_cell_html(player, player_headshots):
+    safe_player = html.escape(display_player_name(player))
+    headshot_url = str((player_headshots or {}).get(player) or "").strip()
+    if not headshot_url:
+        return safe_player
+    safe_url = html.escape(headshot_url, quote=True)
+    return (
+        "<span class='draft-player-cell'>"
+        f"<img class='draft-player-headshot' src='{safe_url}' alt='' loading='lazy' width='22' height='22'>"
+        f"<span>{safe_player}</span>"
+        "</span>"
+    )
+
 def render_tournament_leaderboard(tournament):
     leaderboard_rows = get_tournament_leaderboard(20)
     owner_lookup = {}
@@ -1551,12 +1697,15 @@ def reset_rosters_in_state(state, reset_token=None):
         return False
     for coach, info in state["teams"].items():
         info["players"] = []
+    state["player_headshots"] = {}
     state["draft_active"] = False
     state["draft_enabled"] = False
     state["last_pick_started_at"] = 0
     return True
 
 def make_draft_pick(golfer):
+    headshot_url = get_player_headshot_url(golfer, SELECTED_TOURNAMENT)
+
     def mutator(state):
         state = normalize_state(state)
         current_pick = get_current_pick(state)
@@ -1576,6 +1725,9 @@ def make_draft_pick(golfer):
             return False
         coach = get_coach_for_pick(current_pick, state["draft_order"])
         state["teams"][coach]["players"].append(golfer)
+        if headshot_url:
+            state.setdefault("player_headshots", {})
+            state["player_headshots"][golfer] = headshot_url
         next_pick = get_current_pick(state)
         state["last_pick_started_at"] = time.time()
         if next_pick > MAX_PICKS:
@@ -1583,6 +1735,36 @@ def make_draft_pick(golfer):
             state["draft_enabled"] = False
         return True
     return mutate_shared_state(mutator, "Draft pick")
+
+def backfill_drafted_player_headshots(state, tournament):
+    state = normalize_state(state)
+    drafted_players = sorted(get_picked_golfers(state), key=lambda player: (last_name_key(player), player.lower()))
+    existing_headshots = state.get("player_headshots", {})
+    missing_players = [player for player in drafted_players if not existing_headshots.get(player)]
+    if not missing_players:
+        return state
+
+    lookup = get_tournament_headshot_lookup(tournament)
+    resolved = {
+        player: lookup.get(normalize_player_match_name(player), "")
+        for player in missing_players
+    }
+    resolved = {player: url for player, url in resolved.items() if url}
+    if not resolved:
+        return state
+
+    def mutator(fresh_state):
+        fresh_state = normalize_state(fresh_state)
+        fresh_state.setdefault("player_headshots", {})
+        changed = False
+        for player in get_picked_golfers(fresh_state):
+            if player in resolved and not fresh_state["player_headshots"].get(player):
+                fresh_state["player_headshots"][player] = resolved[player]
+                changed = True
+        return changed
+
+    result, updated_state = mutate_shared_state(mutator, "Backfill drafted golfer headshots")
+    return updated_state if result and updated_state else state
 
 def undo_last_pick():
     def mutator(state):
@@ -1821,6 +2003,7 @@ if "confirm_save_tournament" not in st.session_state:
 
 state, state_sha = load_state_from_github()
 SELECTED_TOURNAMENT, TOURNAMENT_OPTIONS = current_tournament_selection(state)
+state = backfill_drafted_player_headshots(state, SELECTED_TOURNAMENT)
 teams_data = state["teams"]
 draft_order = state["draft_order"]
 PLAYER_RESULTS = state.get("player_results", {})
@@ -2054,6 +2237,8 @@ with draft_controls_slot:
             .draft-table th { background-color:#1f1f1f; color:#fff; }
             .current-cell { animation:flash 1.2s infinite; font-weight:bold; }
             .stopped-cell { background-color:#333; color:#aaa; font-weight:bold; }
+            .draft-player-cell { display:flex; align-items:center; justify-content:center; gap:5px; min-width:0; }
+            .draft-player-headshot { width:22px; height:22px; border-radius:50%; object-fit:cover; flex:0 0 auto; background:#111; }
             </style>
             <div class="draft-table-wrap"><table class="draft-table"><tr><th>Round</th>
             """
@@ -2075,7 +2260,7 @@ with draft_controls_slot:
                     is_current = pick_num == current_pick
 
                     if picked_golfer:
-                        cell = html.escape(display_player_name(picked_golfer))
+                        cell = draft_table_player_cell_html(picked_golfer, state.get("player_headshots", {}))
                         cell_style = ""
                     elif is_current and state["draft_active"]:
                         cell = f"On Clock<br>Pick {pick_num}"
